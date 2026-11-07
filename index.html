@@ -4,12 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>גיאו-להב</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--ink:#23305a;--blue:#4a9bff;--gold:#ffd23f;--pink:#ff7eb6;--green:#5fd68a}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation}
-body{margin:0;font-family:"Segoe UI",Arial,sans-serif;color:var(--ink);min-height:100vh;
+body{margin:0;font-family:"Noto Sans Hebrew","Segoe UI",Arial,sans-serif;line-height:1.5;letter-spacing:.01em;color:var(--ink);min-height:100vh;
   background:linear-gradient(#bfe9ff,#eafcff 55%,#c9f2c7);overflow-x:hidden}
-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;gap:8px}
+header{flex-wrap:wrap;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;gap:8px}
 h1{margin:0;font-size:clamp(22px,4vw,34px)}
 .pill{background:#fff;border-radius:999px;padding:8px 16px;font-size:20px;font-weight:700;box-shadow:0 3px 0 #0001;border:0;color:var(--ink);cursor:pointer}
 main{max-width:900px;margin:0 auto;padding:0 16px 190px}
@@ -49,6 +51,13 @@ main{max-width:900px;margin:0 auto;padding:0 16px 190px}
 .mbox h2{margin:0 0 8px;font-size:26px}
 .mbox ul{padding-inline-start:22px;font-size:20px;line-height:1.5;margin:8px 0}
 .mbox .lvl{background:#eaf6ff;border-radius:14px;padding:10px 14px;margin:10px 0;font-weight:700;font-size:18px}
+button{font-family:inherit}
+.slide{font-size:24px;line-height:1.7;margin:10px 0;text-align:center;min-height:96px}
+.sdots{display:flex;justify-content:center;gap:8px;margin:8px 0 12px}
+.sdots span{width:12px;height:12px;border-radius:50%;background:#cfd8ee}
+.sdots span.on{background:var(--pink)}
+.big[disabled]{opacity:.4;cursor:default}
+.credit{margin-top:22px;font-size:16px;opacity:.85}
 </style>
 </head>
 <body>
@@ -56,6 +65,9 @@ main{max-width:900px;margin:0 auto;padding:0 16px 190px}
   <h1>🔷 גיאו-להב</h1>
   <button class="pill" id="home">🏠</button>
   <button class="pill" id="help" style="display:none">📖 הסבר</button>
+  <button class="pill" id="nk" aria-label="ניקוד">ניקוד</button>
+  <button class="pill" id="fsm" aria-label="להקטין את האותיות">א−</button>
+  <button class="pill" id="fsp" aria-label="להגדיל את האותיות">א+</button>
   <div class="pill" id="stars">⭐ 0</div>
 </header>
 <main id="main"></main>
@@ -163,10 +175,53 @@ function shapeSvg(s,col){
 const shuffle=a=>a.map(x=>[Math.random(),x]).sort((p,q)=>p[0]-q[0]).map(p=>p[1]);
 
 // ---------- learning: explanations, levels, progress ----------
+const APP_VERSION='1.0';
 const GAMEFN={g1:()=>detective(),g2:()=>rulerGame(),g3:()=>buildGame(),g4:()=>mirrorGame(),g5:()=>castleGame(),g6:()=>angleGame(),g7:()=>perimGame(),g8:()=>chartGame()};
 const lvl=g=>Math.min(3,Math.max(1,parseInt(load('lvl_'+g)||'1',10)||1));
 const SVG_ANGLES=`<svg viewBox="0 0 360 120" style="width:100%;max-width:420px;display:block;margin:6px auto"><g stroke="#23305a" stroke-width="4" stroke-linecap="round" fill="none"><path d="M20 90 L100 90 M20 90 L70 35"/><path d="M140 90 L220 90 M140 90 L140 25"/><path d="M270 90 L345 90 M270 90 L215 50"/></g><path d="M154 90 L154 76 L140 76" stroke="#e63946" stroke-width="3" fill="none"/><g font-size="18" font-weight="700" fill="#23305a" text-anchor="middle"><text x="60" y="112">חדה</text><text x="180" y="112">ישרה</text><text x="285" y="112">קהה</text></g></svg>`;
 const SVG_PERIM=`<svg viewBox="0 0 360 120" style="width:100%;max-width:420px;display:block;margin:6px auto"><rect x="30" y="25" width="140" height="70" fill="rgba(111,180,255,.35)" stroke="#23305a" stroke-width="4"/><g font-size="20" font-weight="800" fill="#e63946" text-anchor="middle"><text x="100" y="18">4</text><text x="100" y="116">4</text><text x="188" y="66">2</text><text x="12" y="66">2</text></g><text x="280" y="66" font-size="20" font-weight="800" text-anchor="middle" fill="#23305a">4+2+4+2 = 12</text></svg>`;
+const DEMO_HTML=`<div class="slide" style="min-height:0;font-size:20px">נסי בעצמך! גררי את הגוניה אל הפינה של הזווית, וסובבי אותה עם העיגול הוורוד.</div>
+<svg id="dm" viewBox="0 0 600 330" style="width:100%;max-width:520px;display:block;margin:0 auto;background:#f6f9ff;border-radius:18px;touch-action:none"></svg>
+<div class="center" style="margin-top:6px"><button class="big" data-d="50" style="background:var(--blue);padding:8px 16px;font-size:18px">חדה</button> <button class="big" data-d="90" style="background:var(--blue);padding:8px 16px;font-size:18px">ישרה</button> <button class="big" data-d="125" style="background:var(--blue);padding:8px 16px;font-size:18px">קהה</button></div>
+<div class="fb" id="dmv" style="font-size:19px;min-height:52px"></div>`;
+function initAngleDemo(){
+  const svg=document.getElementById('dm'),vx=300,vy=165,R=135,rot=-25,verdict=document.getElementById('dmv');
+  let deg=50,gx=80,gy=300,gr=0,drag=null;
+  const pol=(a,r)=>[(vx+r*Math.cos(a*Math.PI/180)).toFixed(1),(vy+r*Math.sin(a*Math.PI/180)).toFixed(1)];
+  svg.innerHTML=`<g id="dsc"></g><g id="dg"><polygon points="0,0 150,0 0,-150" fill="rgba(255,193,7,.55)" stroke="#b8860b" stroke-width="3" stroke-linejoin="round"/>
+    <polyline points="24,0 24,-24 0,-24" fill="none" stroke="#e63946" stroke-width="3"/><circle r="5" fill="#e63946"/>
+    <circle cx="128" cy="0" r="14" fill="#ff7eb6" stroke="#23305a" stroke-width="3"/><circle id="dgh" cx="128" cy="0" r="22" fill="transparent"/></g>`;
+  const sc=document.getElementById('dsc'),dg=document.getElementById('dg');
+  const put=()=>dg.setAttribute('transform',`translate(${gx},${gy}) rotate(${gr})`);
+  const norm=a=>((a%360)+360)%360,diff=(a,b)=>{const d=Math.abs(norm(a)-norm(b));return Math.min(d,360-d)};
+  function check(){
+    if(Math.hypot(gx-vx,gy-vy)>28){verdict.textContent='הצמידי את הפינה הישרה של הגוניה לקודקוד של הזווית.';return}
+    const aligned=[gr,gr-90].some(l=>[rot,rot+deg].some(r=>diff(l,r)<8));
+    if(!aligned){verdict.textContent='סובבי עד שצלע של הגוניה מונחת על צלע של הזווית.';return}
+    verdict.textContent=Math.abs(deg-90)<2?'הזווית ישרה: היא נכנסת בדיוק בפינה של הגוניה.':deg<90?'הזווית צרה מהפינה של הגוניה, לכן היא חדה.':'הזווית רחבה מהפינה של הגוניה, לכן היא קהה.';
+  }
+  function scene(){
+    const p1=pol(rot,R),p2=pol(rot+deg,R),a1=pol(rot,40),a2=pol(rot+deg,40);
+    sc.innerHTML=`<line x1="${vx}" y1="${vy}" x2="${p1[0]}" y2="${p1[1]}" stroke="#23305a" stroke-width="6" stroke-linecap="round"/>
+      <line x1="${vx}" y1="${vy}" x2="${p2[0]}" y2="${p2[1]}" stroke="#23305a" stroke-width="6" stroke-linecap="round"/>
+      <path d="M${a1[0]} ${a1[1]} A40 40 0 0 1 ${a2[0]} ${a2[1]}" fill="none" stroke="#ff7eb6" stroke-width="5"/><circle cx="${vx}" cy="${vy}" r="6" fill="#23305a"/>`;
+    check();
+  }
+  const pt=e=>{const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(svg.getScreenCTM().inverse())};
+  svg.addEventListener('pointerdown',e=>{
+    if(!e.target.closest('#dg'))return;const q=pt(e);
+    drag=e.target.id==='dgh'?{rot:true}:{dx:q.x-gx,dy:q.y-gy};svg.setPointerCapture(e.pointerId);e.preventDefault();
+  });
+  svg.addEventListener('pointermove',e=>{
+    if(!drag)return;const q=pt(e);
+    if(drag.rot)gr=Math.round(Math.atan2(q.y-gy,q.x-gx)*180/Math.PI);
+    else{gx=Math.max(0,Math.min(600,q.x-drag.dx));gy=Math.max(0,Math.min(330,q.y-drag.dy))}
+    put();check();
+  });
+  const up=()=>{drag=null};svg.addEventListener('pointerup',up);svg.addEventListener('pointercancel',up);
+  modal.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{deg=+b.dataset.d;scene()});
+  put();scene();
+}
 const EXPLAIN={
  g1:{t:'צורות: צלעות וקודקודים',h:`<ul><li><b>צלע</b> היא קו ישר שמקיף את הצורה.</li><li><b>קודקוד</b> הוא הפינה שבה שתי צלעות נפגשות.</li><li>משולש: 3 צלעות. מרובע (ריבוע ומלבן): 4. מחומש: 5. משושה: 6. מתומן: 8.</li><li>לעיגול אין צלעות ואין קודקודים 🔵</li></ul>`,
   lv:['מזהים עיגול, משולש, ריבוע ומלבן לפי השם','כל הצורות, וגם שאלות על מספר הצלעות','הרבה שאלות על מספר צלעות: מחומש, משושה ומתומן']},
@@ -188,14 +243,30 @@ const EXPLAIN={
 const modal=document.createElement('div');modal.id='modal';document.body.appendChild(modal);
 const helpBtn=document.getElementById('help');
 let curGame=null;
-function showHelp(g,auto){
+function showHelp(g,mode){
   const E=EXPLAIN[g],L=lvl(g);
-  modal.innerHTML=`<div class="mbox"><h2>📖 ${E.t}</h2>${E.h}<div class="lvl">🌱🌿🌳 רמה ${L} מתוך 3: ${E.lv[L-1]}</div><div class="center"><button class="big" id="mok">${auto?'הבנתי, מתחילים!':'חזרה למשחק'}</button></div></div>`;
-  modal.style.display='flex';document.getElementById('mok').onclick=()=>{modal.style.display='none'};
-  save('seen_'+g+'_'+L,'1');
+  const svg=(E.h.match(/<svg[\s\S]*?<\/svg>/)||[''])[0];
+  const items=[...E.h.matchAll(/<li>([\s\S]*?)<\/li>/g)].map(m=>m[1]);
+  const slides=items.map((t,i)=>`${i===0?svg:''}<div class="slide">${t}</div>`);
+  const inits={};
+  if(g==='g6'){inits[slides.length]=initAngleDemo;slides.push(DEMO_HTML)}
+  slides.push(`<div class="slide">🌱🌿🌳 <b>רמה ${L} מתוך 3</b><br>${E.lv[L-1]}</div>`);
+  const last=mode==='auto'?'הבנתי, מתחילים!':mode==='help'?'חזרה למשחק':'סגירה';
+  let i=0;
+  function draw(){
+    modal.innerHTML=`<div class="mbox"><h2>📖 ${E.t}</h2><div class="slides">${slides[i]}</div>
+      <div class="sdots">${slides.map((_,k)=>`<span class="${k===i?'on':''}"></span>`).join('')}</div>
+      <div class="center"><button class="big" id="mprev" style="background:var(--blue)" ${i?'':'disabled'}>הקודם</button>
+      <button class="big" id="mnext" style="margin-inline-start:8px">${i===slides.length-1?last:'הבא'}</button></div></div>`;
+    modal.style.display='flex';
+    if(inits[i])inits[i]();
+    document.getElementById('mprev').onclick=()=>{if(i>0){i--;draw()}};
+    document.getElementById('mnext').onclick=()=>{if(i===slides.length-1)modal.style.display='none';else{i++;draw()}};
+  }
+  draw();save('seen_'+g+'_'+L,'1');
 }
-function play(g){curGame=g;helpBtn.style.display='';GAMEFN[g]();if(!load('seen_'+g+'_'+lvl(g)))showHelp(g,true)}
-helpBtn.onclick=()=>{if(curGame)showHelp(curGame,false)};
+function play(g){curGame=g;helpBtn.style.display='';GAMEFN[g]();if(!load('seen_'+g+'_'+lvl(g)))showHelp(g,'auto')}
+helpBtn.onclick=()=>{if(curGame)showHelp(curGame,'help')};
 
 
 // ---------- screens ----------
@@ -204,8 +275,11 @@ function home(){
   const tile=(id,em,name)=>`<button class="tile" id="${id}"><span class="em">${em}</span>${name}<br><small>${['🌱','🌿','🌳'][lvl(id)-1]} רמה ${lvl(id)}</small></button>`;
   main.innerHTML=`<div class="q">לאן נטייל היום?</div><div class="map">
    ${tile('g1','🔍','בלש הצורות')}${tile('g3','🏗️','בונים צורה')}${tile('g2','📏','מודדים עם סרגל')}${tile('g6','📐','ציידי הזוויות')}${tile('g7','🔲','מודדים היקף')}${tile('g8','📊','דיאגרמה')}${tile('g4','🪞','מראה קסומה')}${tile('g5','🏰','בונים טירה')}</div>
-   <div class="center" style="margin-top:14px;font-size:18px">🌱 רמה 1 ← 🌿 רמה 2 ← 🌳 רמה 3. מסיימים סבב עם לפחות 80% נכון בניסיון הראשון, ועולים רמה!</div>`;
+   <div class="center" style="margin-top:14px;font-size:18px">🌱 רמה 1 ← 🌿 רמה 2 ← 🌳 רמה 3. מסיימים סיבוב עם לפחות 80% נכון בניסיון הראשון, ועולים רמה!</div>`;
   Object.keys(GAMEFN).forEach(g=>{document.getElementById(g).onclick=()=>play(g)});
+  main.insertAdjacentHTML('beforeend',`<div class="q" style="font-size:22px;margin-top:22px">📚 שיעורים</div><div class="center">${Object.keys(EXPLAIN).map(g=>`<button class="big" data-ls="${g}" style="background:var(--blue);margin:4px;font-size:18px;padding:10px 16px">${EXPLAIN[g].t}</button>`).join('')}</div>
+   <div class="center credit">גרסה ${APP_VERSION} · פותח ונוצר על ידי עומר להב (ורועי) 💙</div>`);
+  main.querySelectorAll('[data-ls]').forEach(b=>b.onclick=()=>showHelp(b.dataset.ls,'lesson'));
   main.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{sndOops();say('זה יגיע בקרוב!')});
   helpBtn.style.display='none';curGame=null;
   say(who==='elephant'?'היי! בואי נשחק!':'בלה בלה! בואי נשחק!');
@@ -619,7 +693,7 @@ function angleGame(){
     const p1=pol(cx,cy,R,rot),p2=pol(cx,cy,R,rot+deg),a1=pol(cx,cy,44,rot),a2=pol(cx,cy,44,rot+deg);
     main.innerHTML=`${dotsHtml(n,TOTAL)}
       <div class="q">איזו זווית זאת? השתמשי בגוניה 📐</div>
-      <div class="center" style="margin:-4px 0 8px">גררי את הגוניה לפינה של הזווית וסובבי אותה. הפינה הישרה של הגוניה היא זווית ישרה.</div>
+      <div class="center" style="margin:-4px 0 8px">גררי את הגוניה לפינה של הזווית וסובבי אותה (עם הכפתורים או העיגול הוורוד). הפינה הישרה של הגוניה היא זווית ישרה.</div>
       <svg id="an" viewBox="0 0 600 380" style="width:100%;max-width:calc(55vh*600/380);margin:0 auto;display:block;background:#fff;border-radius:22px;box-shadow:0 5px 0 #0002;touch-action:none">
         <line x1="${cx}" y1="${cy}" x2="${p1[0]}" y2="${p1[1]}" stroke="#23305a" stroke-width="6" stroke-linecap="round"/>
         <line x1="${cx}" y1="${cy}" x2="${p2[0]}" y2="${p2[1]}" stroke="#23305a" stroke-width="6" stroke-linecap="round"/>
@@ -629,6 +703,7 @@ function angleGame(){
           <polygon points="0,0 150,0 0,-150" fill="rgba(255,193,7,.55)" stroke="#b8860b" stroke-width="3" stroke-linejoin="round"/>
           <polyline points="24,0 24,-24 0,-24" fill="none" stroke="#e63946" stroke-width="3"/>
           <circle cx="0" cy="0" r="5" fill="#e63946"/>
+          <circle cx="128" cy="0" r="14" fill="#ff7eb6" stroke="#23305a" stroke-width="3" style="cursor:alias"/><circle id="gh" cx="128" cy="0" r="22" fill="transparent" style="cursor:alias"/>
         </g></svg>
       <div class="center" style="margin-top:10px"><button class="big" id="rl" style="background:var(--blue)">↺ סובבי</button>
         <button class="big" id="rr" style="background:var(--blue)">↻ סובבי</button></div>
@@ -638,8 +713,8 @@ function angleGame(){
     let gx=40,gy=360,gr=0,drag=null;
     const put=()=>gn.setAttribute('transform',`translate(${gx},${gy}) rotate(${gr})`);
     const pt=e=>{const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(svg.getScreenCTM().inverse())};
-    gn.addEventListener('pointerdown',e=>{const q=pt(e);drag={dx:q.x-gx,dy:q.y-gy};gn.setPointerCapture(e.pointerId);e.preventDefault()});
-    gn.addEventListener('pointermove',e=>{if(!drag)return;const q=pt(e);gx=Math.max(0,Math.min(600,q.x-drag.dx));gy=Math.max(0,Math.min(380,q.y-drag.dy));put()});
+    gn.addEventListener('pointerdown',e=>{const q=pt(e);drag=e.target.id==='gh'?{rot:true}:{dx:q.x-gx,dy:q.y-gy};gn.setPointerCapture(e.pointerId);e.preventDefault()});
+    gn.addEventListener('pointermove',e=>{if(!drag)return;const q=pt(e);if(drag.rot){gr=Math.round(Math.atan2(q.y-gy,q.x-gx)*180/Math.PI);put();return}gx=Math.max(0,Math.min(600,q.x-drag.dx));gy=Math.max(0,Math.min(380,q.y-drag.dy));put()});
     const up=()=>{drag=null};gn.addEventListener('pointerup',up);gn.addEventListener('pointercancel',up);
     document.getElementById('rl').onclick=()=>{gr-=15;put()};
     document.getElementById('rr').onclick=()=>{gr+=15;put()};
@@ -814,7 +889,43 @@ function chartGame(){
   say('בואי נקרא דיאגרמות!');round();
 }
 
+// ---------- niqqud (vowel points) and accessibility ----------
+const NK={"אבל": "אֲבָל", "אדריכלית": "אַדְרִיכָלִית", "אהוב": "אָהוּב", "אהובה": "אֲהוּבָה", "או": "אוֹ", "אוגר": "אוֹגֵר", "אוהבים": "אוֹהֲבִים", "אופקית": "אוֹפְקִית", "אורך": "אֹרֶךְ", "אורכי": "אָרְכֵי", "אורכים": "אֲרָכִים", "אותה": "אוֹתָהּ", "אחד": "אֶחָד", "אחרת": "אַחֶרֶת", "אחת": "אַחַת", "איזה": "אֵיזֶה", "איזו": "אֵיזוֹ", "אין": "אֵין", "אם": "אִם", "אני": "אֲנִי", "אנכית": "אֲנָכִית", "ארנב": "אַרְנָב", "באורכן": "בְּאָרְכָּן", "באותו": "בְּאוֹתוֹ", "באחת": "בְּאַחַת", "באיזה": "בְּאֵיזֶה", "באמצע": "בָּאֶמְצַע", "בבית": "בְּבֵית", "בגוניה": "בַּגּוֹנְיָה", "בדיוק": "בְּדִיּוּק", "בדקי": "בִּדְקִי", "בואי": "בּוֹאִי", "בונה": "בּוֹנָה", "בונים": "בּוֹנִים", "בחרו": "בָּחֲרוּ", "בטירה": "בַּטִּירָה", "ביותר": "בְּיוֹתֵר", "בין": "בֵּין", "בית": "בַּיִת", "בכלל": "בִּכְלָל", "בכמה": "בְּכַמָּה", "בלה": "בְּלָה", "בלי": "בְּלִי", "בלש": "בַּלָּשׁ", "בלשית": "בַּלָּשִׁית", "במלבן": "בְּמַלְבֵּן", "במרחק": "בְּמֶרְחָק", "במרכז": "בַּמֶּרְכָּז", "במשושה": "בְּמֻשְׁשֶׁה", "בנאנה": "בָּנָאנָה", "בנושא": "בַּנֹּשֵׂא", "בני": "בְּנִי", "בניסיון": "בְּנִסָּיוֹן", "בנית": "בָּנִית", "בננה": "בָּנָנָה", "בסך": "בְּסַךְ", "בסקר": "בַּסֶּקֶר", "בעיקר": "בְּעִקָּר", "בצד": "בַּצַּד", "בקו": "בַּקַּו", "בקרוב": "בְּקָרוֹב", "בריבוע": "בְּרִבּוּעַ", "בשלבים": "בַּשְּׁלָבִים", "גבוהה": "גְּבוֹהָה", "גדולה": "גְּדוֹלָה", "גדולים": "גְּדוֹלִים", "גוניה": "גּוֹנְיָה", "גיאו": "גֵּיאוֹ", "גלידה": "גְּלִידָה", "גם": "גַּם", "גררי": "גָּרְרִי", "דבר": "דָּבָר", "דיאגרמה": "דִּיאָגְרָמָה", "דיאגרמות": "דִּיאָגְרָמוֹת", "דיאגרמת": "דִּיאָגְרַמַּת", "דמות": "דְּמוּת", "דף": "דַּף", "האדום": "הָאָדֹם", "הבבואה": "הַבְּבוּאָה", "הבינוני": "הַבֵּינוֹנִי", "הבנתי": "הֵבַנְתִּי", "הגבוהה": "הַגְּבוֹהָה", "הגוניה": "הַגּוֹנְיָה", "הגעת": "הִגַּעַתְּ", "הדיאגרמה": "הַדִּיאָגְרָמָה", "ההיקף": "הַהֶקֵּף", "הוא": "הוּא", "הזאת": "הַזֹּאת", "הזה": "הַזֶּה", "הזוויות": "הַזָּוִיּוֹת", "הזווית": "הַזָּוִית", "הזיזי": "הָזִיזִי", "החליפי": "הַחֲלִיפִי", "החסרה": "הַחֲסֵרָה", "החצאים": "הַחֲצָאִים", "הטבלה": "הַטַּבְלָה", "הטירה": "הַטִּירָה", "היא": "הִיא", "היום": "הַיּוֹם", "היי": "הַיי", "היקף": "הֶקֵּף", "הישרה": "הַיְשָׁרָה", "הכבוד": "הַכָּבוֹד", "הכי": "הֲכִי", "הכיתה": "הַכִּתָּה", "הכל": "הַכֹּל", "הלוח": "הַלּוּחַ", "הם": "הֵם", "המלבן": "הַמַּלְבֵּן", "המספר": "הַמִּסְפָּר", "המספרים": "הַמִּסְפָּרִים", "המראה": "הַמַּרְאָה", "המשבצת": "הַמִּשְׁבֶּצֶת", "המתאימה": "הַמַּתְאִימָה", "הנכון": "הַנָּכוֹן", "הנקודות": "הַנְּקֻדּוֹת", "הסבר": "הֶסְבֵּר", "הסימן": "הַסִּימָן", "הספר": "הַסֵּפֶר", "הסקאלה": "הַסְּקָאלָה", "הסרגל": "הַסַּרְגֵּל", "הסתכלי": "הִסְתַּכְּלִי", "העיפרון": "הָעִפָּרוֹן", "העמודה": "הָעַמּוּדָה", "הפינה": "הַפִּנָּה", "הפינות": "הַפִּנּוֹת", "הצהובות": "הַצְּהֻבּוֹת", "הצורה": "הַצּוּרָה", "הצורות": "הַצּוּרוֹת", "הצלע": "הַצֶּלַע", "הצלעות": "הַצְּלָעוֹת", "הצמידי": "הַצְמִידִי", "הקו": "הַקַּו", "הקווים": "הַקַּוִּים", "הקסומה": "הַקְּסוּמָה", "הקסם": "הַקֶּסֶם", "הקסמים": "הַקְּסָמִים", "הקשים": "הַקָּשִׁים", "הראשון": "הָרִאשׁוֹן", "הרבה": "הַרְבֵּה", "הרשת": "הָרֶשֶׁת", "השוואה": "הַשְׁוָאָה", "השם": "הַשֵּׁם", "השמאלי": "הַשְּׂמָאלִי", "השני": "הַשֵּׁנִי", "השתמשי": "הִשְׁתַּמְּשִׁי", "ואין": "וְאֵין", "ואת": "וְאַתְּ", "ובצד": "וּבַצַּד", "וגם": "וְגַם", "והבבואה": "וְהַבְּבוּאָה", "והצלעות": "וְהַצְּלָעוֹת", "והקו": "וְהַקַּו", "וזוויות": "וְזָוִיּוֹת", "וטירה": "וְטִירָה", "וכל": "וְכָל", "ולפעמים": "וְלִפְעָמִים", "ומדדי": "וּמִדְּדִי", "ומחברים": "וּמְחַבְּרִים", "ומלבן": "וּמַלְבֵּן", "ומספרים": "וּמִסְפָּרִים", "ומציאת": "וּמְצִיאַת", "ומראה": "וּמַרְאָה", "ומשולש": "וּמְשֻׁלָּשׁ", "ומתומן": "וּמְתֻמָּן", "וניל": "וָנִיל", "ונסי": "וְנַסִּי", "וסובבי": "וְסוֹבְבִי", "ועולים": "וְעוֹלִים", "וקהה": "וְקֵהָה", "וקודקודים": "וְקָדְקֹדִים", "ורואים": "וְרוֹאִים", "ורוחב": "וְרֹחַב", "וריבוע": "וְרִבּוּעַ", "ושאלות": "וּשְׁאֵלוֹת", "זאת": "זֹאת", "זה": "זֶה", "זהה": "זֵהָה", "זו": "זוֹ", "זוויות": "זָוִיּוֹת", "זווית": "זָוִית", "חד": "חַד", "חדה": "חַדָּה", "חזרה": "חֲזָרָה", "חיית": "חַיַּת", "חסרה": "חֲסֵרָה", "חסרות": "חֲסֵרוֹת", "חפשי": "חַפְּשִׂי", "חצאי": "חֲצָאֵי", "חצי": "חֲצִי", "חתול": "חָתוּל", "טיפ": "טִיפּ", "טירה": "טִירָה", "טירות": "טִירוֹת", "טירת": "טִירַת", "טעויות": "טָעֻיּוֹת", "טעים": "טָעִים", "טעם": "טַעַם", "יגיע": "יַגִּיעַ", "יופיע": "יוֹפִיעַ", "יותר": "יוֹתֵר", "יחידות": "יְחִידוֹת", "ילדי": "יַלְדֵי", "ילדים": "יְלָדִים", "יש": "יֵשׁ", "ישר": "יָשָׁר", "ישרה": "יְשָׁרָה", "ישרות": "יְשָׁרוֹת", "כאן": "כָּאן", "כדורגל": "כַּדּוּרֶגֶל", "כדורסל": "כַּדּוּרְסַל", "כדי": "כְּדֵי", "כל": "כָּל", "כלב": "כֶּלֶב", "כמה": "כַּמָּה", "כמו": "כְּמוֹ", "כמעט": "כִּמְעַט", "כתוב": "כָּתוּב", "לא": "לֹא", "לאן": "לְאָן", "לב": "לֵב", "לבחור": "לִבְחוֹר", "לדיאגרמות": "לְדִיאָגְרָמוֹת", "לה": "לָהּ", "להב": "לַהַב", "להיקף": "לְהֶקֵּף", "לו": "לוֹ", "לזו": "לְזוֹ", "לזוויות": "לְזָוִיּוֹת", "לזווית": "לְזָוִית", "לחצי": "לַחֲצִי", "לימון": "לִימוֹן", "לכאן": "לְכָאן", "למחומש": "לְמֻחְמָשׁ", "למטה": "לְמַטָּה", "למספר": "לְמִסְפַּר", "למצוא": "לִמְצֹא", "למקום": "לַמָּקוֹם", "למשולש": "לִמְשֻׁלָּשׁ", "למשחק": "לַמִּשְׂחָק", "לספור": "לִסְפֹּר", "לעיגול": "לְעִגּוּל", "לעלות": "לַעֲלוֹת", "לפחות": "לְפָחוֹת", "לפי": "לְפִי", "לפינה": "לְפִנָּה", "לפעמים": "לִפְעָמִים", "לצורה": "לְצוּרָה", "לקודקוד": "לְקָדְקֹד", "לקצה": "לְקָצֶה", "לקרוא": "לִקְרֹא", "לרמה": "לְרָמָה", "לתחילת": "לִתְחִלַּת", "מאוד": "מְאֹד", "מאשר": "מֵאֲשֶׁר", "מבחוץ": "מִבַּחוּץ", "מגדלים": "מִגְדָּלִים", "מגיעה": "מַגִּיעָה", "מדדת": "מָדַדְתְּ", "מדהים": "מַדְהִים", "מדויקת": "מְדֻיֶּקֶת", "מדידות": "מְדִידוֹת", "מה": "מָה", "מההתחלה": "מֵהַהַתְחָלָה", "מהמראה": "מֵהַמַּרְאָה", "מהן": "מֵהֶן", "מהקו": "מֵהַקַּו", "מודדים": "מוֹדְדִים", "מודדת": "מוֹדֶדֶת", "מוכנה": "מוּכָנָה", "מומחית": "מֻמְחִית", "מורכבות": "מְרֻכָּבוֹת", "מושלם": "מֻשְׁלָם", "מזהים": "מְזַהִים", "מזווית": "מִזָּוִית", "מחברים": "מְחַבְּרִים", "מחומש": "מֻחְמָשׁ", "מחמד": "מַחְמָד", "מחסרים": "מְחַסְּרִים", "מיותרות": "מְיֻתָּרוֹת", "מיותרת": "מְיֻתֶּרֶת", "מילימטר": "מִילִימֶטֶר", "מכל": "מִכֹּל", "מלבן": "מַלְבֵּן", "ממנה": "מִמֶּנָּה", "מסיימים": "מְסַיְּמִים", "מסמנים": "מְסַמְּנִים", "מספר": "מִסְפָּר", "מספרים": "מִסְפָּרִים", "מסתכלים": "מִסְתַּכְּלִים", "מעולה": "מְעֻלָּה", "מצאי": "מִצְאִי", "מצורות": "מִצּוּרוֹת", "מצמידים": "מַצְמִידִים", "מקפלים": "מְקַפְּלִים", "מראה": "מַרְאָה", "מרובע": "מְרֻבָּע", "מרחק": "מֶרְחָק", "משבצות": "מִשְׁבְּצוֹת", "משבצת": "מִשְׁבֶּצֶת", "משוכלל": "מְשֻׁכְלָל", "משולש": "מְשֻׁלָּשׁ", "משושה": "מְשֻׁשֶּׁה", "מתאימה": "מַתְאִימָה", "מתוך": "מִתּוֹךְ", "מתומן": "מְתֻמָּן", "מתחילים": "מַתְחִילִים", "נבנה": "נִבְנֶה", "נגמר": "נִגְמַר", "נגמרת": "נִגְמֶרֶת", "נופלים": "נוֹפְלִים", "נטייל": "נְטַיֵּל", "נייר": "נְיָר", "נכון": "נָכוֹן", "נכונות": "נְכוֹנוֹת", "נכונים": "נְכוֹנִים", "נמדוד": "נִמְדֹּד", "נמוכות": "נְמוּכוֹת", "נמצאות": "נִמְצָאוֹת", "נמצאת": "נִמְצֵאת", "נסי": "נַסִּי", "נפגשות": "נִפְגָּשׁוֹת", "נצוד": "נָצוּד", "נקודה": "נְקֻדָּה", "נקרא": "נִקְרָא", "נקראת": "נִקְרֵאת", "נשחק": "נְשַׂחֵק", "נתון": "נָתוּן", "נתונים": "נְתוּנִים", "סובבי": "סוֹבְבִי", "סופרים": "סוֹפְרִים", "סימטריה": "סִימֶטְרִיָּה", "סימטרית": "סִימֶטְרִית", "סימנת": "סִמַּנְתְּ", "סכום": "סְכוּם", "סנטימטר": "סֶנְטִימֶטֶר", "ספורט": "סְפּוֹרְט", "ספרי": "סִפְרִי", "סרגל": "סַרְגֵּל", "עבד": "עָבַד", "עגול": "עָגֹל", "עד": "עַד", "עוד": "עוֹד", "עולה": "עוֹלֶה", "עולים": "עוֹלִים", "עיגול": "עִגּוּל", "על": "עַל", "עלית": "עָלִית", "עם": "עִם", "עמודה": "עַמּוּדָה", "עמודות": "עַמּוּדוֹת", "ענבים": "עֲנָבִים", "ענו": "עָנוּ", "ערך": "עֶרֶךְ", "פיל": "פִּיל", "פינה": "פִּנָּה", "פינות": "פִּנּוֹת", "פעם": "פַּעַם", "פעמיים": "פַּעֲמַיִם", "פעמים": "פְּעָמִים", "פרי": "פְּרִי", "פשוטות": "פְּשׁוּטוֹת", "צבעי": "צִבְעִי", "צורה": "צוּרָה", "צורות": "צוּרוֹת", "ציורים": "צִיּוּרִים", "ציידי": "צַיְּדֵי", "ציידת": "צַיֶּדֶת", "צלע": "צֶלַע", "צלעות": "צְלָעוֹת", "צרה": "צָרָה", "צרות": "צָרוֹת", "צריך": "צָרִיךְ", "צריכה": "צְרִיכָה", "קהה": "קֵהָה", "קו": "קַו", "קודקוד": "קָדְקֹד", "קודקודים": "קָדְקֹדִים", "קווים": "קַוִּים", "קוסמת": "קוֹסֶמֶת", "קוראים": "קוֹרְאִים", "קוראת": "קוֹרֵאת", "קטן": "קָטָן", "קטנה": "קְטַנָּה", "קטנים": "קְטַנִּים", "קסומה": "קְסוּמָה", "קסמים": "קְסָמִים", "קראטה": "קָרָאטֶה", "קרן": "קֶרֶן", "רוחב": "רֹחַב", "רחבה": "רְחָבָה", "רחבות": "רְחָבוֹת", "רחוקה": "רְחוֹקָה", "ריבוע": "רִבּוּעַ", "ריכוז": "רִכּוּז", "רמה": "רָמָה", "רק": "רַק", "שאורך": "שֶׁאֹרֶךְ", "שאינו": "שֶׁאֵינוֹ", "שאלות": "שְׁאֵלוֹת", "שבה": "שֶׁבָּהּ", "שבו": "שֶׁבּוֹ", "שבטבלה": "שֶׁבַּטַּבְלָה", "שוב": "שׁוּב", "שוות": "שָׁווֹת", "שוקולד": "שׁוֹקוֹלָד", "שחייה": "שְׂחִיָּה", "שימי": "שִׂימִי", "שיש": "שֶׁיֵּשׁ", "שכל": "שֶׁכָּל", "של": "שֶׁל", "שלה": "שֶׁלָּהּ", "שלו": "שֶׁלּוֹ", "שלמים": "שְׁלֵמִים", "שמודדים": "שֶׁמּוֹדְדִים", "שממול": "שֶׁמִּמּוּל", "שמקיף": "שֶׁמַּקִּיף", "שני": "שְׁנֵי", "שסימנו": "שֶׁסִּמַּנּוּ", "שעולים": "שֶׁעוֹלִים", "שקרובות": "שֶׁקְּרוֹבוֹת", "שתי": "שְׁתֵּי", "תות": "תּוּת", "תפוח": "תַּפּוּחַ", "תשובות": "תְּשׁוּבוֹת", "העיגול": "הָעִגּוּל", "הריבוע": "הָרִבּוּעַ", "המשולש": "הַמְּשֻׁלָּשׁ", "המחומש": "הַמֻּחְמָשׁ", "המשושה": "הַמְּשֻׁשֶּׁה", "המתומן": "הַמְּתֻמָּן", "הקודם": "הַקּוֹדֵם", "הבא": "הַבָּא", "סגירה": "סְגִירָה", "שיעורים": "שִׁעוּרִים", "ניקוד": "נִקּוּד", "סיבוב": "סִבּוּב", "גרסה": "גִּרְסָה", "פותח": "פֻּתַּח", "ונוצר": "וְנוֹצַר", "ידי": "יְדֵי", "עומר": "עוֹמֶר", "ורועי": "וְרוֹעִי", "בעצמך": "בְּעַצְמֵךְ", "אל": "אֶל", "נכנסת": "נִכְנֶסֶת", "בפינה": "בַּפִּנָּה", "מהפינה": "מֵהַפִּנָּה", "לכן": "לָכֵן", "מונחת": "מֻנַּחַת", "הוורוד": "הַוָּרֹד", "הכפתורים": "הַכַּפְתּוֹרִים", "שצלע": "שֶׁצֶּלַע"};
+const MARKS=/[\u05B0-\u05C7]/,HEB=/[\u05D0-\u05EA\u05B0-\u05C7]+/g;
+let nikudOn=load('nikud')!=='0';
+const origText=new WeakMap();
+function pointText(t){
+  return t.replace(HEB,(m,off)=>{
+    if(MARKS.test(m)||m.length<2)return m;
+    if(m==='את')return /^\s*ה/.test(t.slice(off+m.length))?'אֶת':'אַתְּ';
+    return NK[m]||m;
+  });
+}
+function pointNode(n){
+  const p=n.parentNode;if(!nikudOn||!p||/^(SCRIPT|STYLE|TEXTAREA)$/.test(p.nodeName)||origText.has(n))return;
+  const v=n.nodeValue,nv=pointText(v);
+  if(nv!==v){origText.set(n,v);n.nodeValue=nv}
+}
+function textNodes(root){const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),a=[];while(w.nextNode())a.push(w.currentNode);return a}
+const walk=root=>textNodes(root).forEach(pointNode);
+function restoreAll(){textNodes(document.body).forEach(n=>{if(origText.has(n)){n.nodeValue=origText.get(n);origText.delete(n)}})}
+new MutationObserver(ms=>{
+  if(!nikudOn)return;
+  ms.forEach(m=>{
+    m.addedNodes.forEach(n=>{if(n.nodeType===3)pointNode(n);else if(n.nodeType===1)walk(n)});
+    if(m.type==='characterData'&&m.target.nodeType===3)pointNode(m.target);
+  });
+}).observe(document.body,{childList:true,subtree:true,characterData:true});
+const nkBtn=document.getElementById('nk');
+function showNk(){nkBtn.setAttribute('aria-pressed',String(nikudOn));nkBtn.style.opacity=nikudOn?1:.55}
+nkBtn.onclick=()=>{nikudOn=!nikudOn;save('nikud',nikudOn?'1':'0');if(nikudOn)walk(document.body);else restoreAll();showNk()};
+let fsz=parseFloat(load('fsz')||'1')||1;
+function applyFs(){document.body.style.zoom=fsz;save('fsz',String(fsz))}
+document.getElementById('fsp').onclick=()=>{fsz=Math.min(1.45,+(fsz+.15).toFixed(2));applyFs()};
+document.getElementById('fsm').onclick=()=>{fsz=Math.max(1,+(fsz-.15).toFixed(2));applyFs()};
+
 drawChar();showStars();home();
+walk(document.body);showNk();applyFs();
 </script>
 </body>
 </html>
