@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>גיאו-להב</title>
+<style>
+:root{--ink:#23305a;--blue:#4a9bff;--gold:#ffd23f;--pink:#ff7eb6;--green:#5fd68a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation}
+body{margin:0;font-family:"Segoe UI",Arial,sans-serif;color:var(--ink);min-height:100vh;
+  background:linear-gradient(#bfe9ff,#eafcff 55%,#c9f2c7);overflow-x:hidden}
+header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;gap:8px}
+h1{margin:0;font-size:clamp(22px,4vw,34px)}
+.pill{background:#fff;border-radius:999px;padding:8px 16px;font-size:20px;font-weight:700;box-shadow:0 3px 0 #0001;border:0;color:var(--ink);cursor:pointer}
+main{max-width:900px;margin:0 auto;padding:0 16px 190px}
+.map{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+.tile{background:#fff;border-radius:22px;padding:18px 10px;text-align:center;font-size:20px;font-weight:700;
+  box-shadow:0 5px 0 #0002;cursor:pointer;border:0;color:var(--ink)}
+.tile .em{font-size:48px;display:block;margin-bottom:6px}
+.tile.locked{opacity:.55}
+.tile:active{transform:translateY(3px)}
+.q{font-size:clamp(22px,4.5vw,34px);font-weight:800;text-align:center;margin:10px 0 14px}
+.dots{display:flex;justify-content:center;gap:8px;margin-bottom:10px}
+.dot{width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid var(--ink)}
+.dot.done{background:var(--green)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px}
+.card{background:#fff;border-radius:22px;aspect-ratio:1;border:0;box-shadow:0 5px 0 #0002;cursor:pointer;padding:12px}
+.card svg{width:100%;height:100%}
+.card.ok{animation:pop .5s;background:#d8ffe6}
+.card.no{animation:shake .4s;background:#ffe1e1}
+.fb{min-height:36px;text-align:center;font-size:22px;font-weight:700;margin:12px 0}
+.big{background:var(--pink);color:#fff;border:0;border-radius:18px;padding:14px 28px;font-size:22px;font-weight:800;cursor:pointer;box-shadow:0 5px 0 #0003}
+.center{text-align:center}
+#pal{position:fixed;left:10px;bottom:6px;display:flex;align-items:flex-end;gap:8px;pointer-events:none;z-index:5}
+#pal>*{pointer-events:auto}
+#ch{width:clamp(110px,22vw,170px);cursor:pointer}
+#ch.bounce{animation:bounce .6s}
+#bubble{background:#fff;border-radius:18px;padding:10px 14px;font-size:20px;font-weight:700;max-width:200px;
+  box-shadow:0 4px 0 #0002;margin-bottom:60px;opacity:0;transition:opacity .25s}
+#bubble.on{opacity:1}
+.sw{position:fixed;right:10px;bottom:10px;z-index:5}
+.puff{position:fixed;font-size:44px;pointer-events:none;animation:puff 1.4s forwards;z-index:9}
+@keyframes pop{50%{transform:scale(1.15)}}
+@keyframes shake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+@keyframes bounce{30%{transform:translateY(-22px) rotate(-4deg)}60%{transform:translateY(0)}80%{transform:translateY(-8px)}}
+@keyframes puff{from{opacity:1;transform:translate(0,0) scale(.6)}to{opacity:0;transform:translate(-60px,-50px) scale(1.8)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔷 גיאו-להב</h1>
+  <button class="pill" id="home">🏠</button>
+  <div class="pill" id="stars">⭐ 0</div>
+</header>
+<main id="main"></main>
+
+<div id="pal"><div id="ch"></div><div id="bubble"></div></div>
+<button class="pill sw" id="sw">🔄 החליפי דמות</button>
+
+<script>
+// ---------- characters (SVG) ----------
+const ELEPHANT=`<svg viewBox="0 0 200 200">
+<ellipse cx="42" cy="100" rx="34" ry="42" fill="#6fb4ff"/><ellipse cx="42" cy="100" rx="20" ry="28" fill="#ffb6d5"/>
+<ellipse cx="158" cy="100" rx="34" ry="42" fill="#6fb4ff"/><ellipse cx="158" cy="100" rx="20" ry="28" fill="#ffb6d5"/>
+<circle cx="100" cy="105" r="56" fill="#4a9bff"/>
+<path d="M100 122 Q100 168 126 172" stroke="#4a9bff" stroke-width="24" fill="none" stroke-linecap="round"/>
+<polygon points="100,6 88,54 112,54" fill="#ffd23f" stroke="#e0a800" stroke-width="2"/>
+<path d="M92 40 L108 34 M90 48 L110 42" stroke="#e0a800" stroke-width="3"/>
+<text x="124" y="30" font-size="20">✨</text>
+<circle cx="78" cy="98" r="11" fill="#fff"/><circle cx="122" cy="98" r="11" fill="#fff"/>
+<circle cx="80" cy="100" r="5" fill="#222"/><circle cx="120" cy="100" r="5" fill="#222"/>
+<circle cx="66" cy="124" r="8" fill="#ff9ec6" opacity=".7"/><circle cx="134" cy="124" r="8" fill="#ff9ec6" opacity=".7"/>
+</svg>`;
+const MINION=`<svg viewBox="0 0 200 200">
+<path d="M100 8 q-4 -2 -12 6 M100 8 q2 -6 8 -4 M100 8 q10 -4 14 4" stroke="#222" stroke-width="3" fill="none"/>
+<rect x="58" y="14" width="84" height="150" rx="42" fill="#ffd93b" stroke="#c9a400" stroke-width="3"/>
+<path d="M58 118 H142 V124 a42 42 0 0 1 -42 40 a42 42 0 0 1 -42 -40Z" fill="#3b6fc4"/>
+<rect x="76" y="108" width="48" height="26" rx="6" fill="#3b6fc4"/>
+<rect x="56" y="58" width="88" height="12" fill="#444"/>
+<circle cx="100" cy="64" r="26" fill="#c7c7c7" stroke="#555" stroke-width="5"/>
+<circle cx="100" cy="64" r="18" fill="#fff"/><circle cx="100" cy="64" r="8" fill="#7a4a22"/><circle cx="100" cy="64" r="3.5" fill="#000"/>
+<path d="M82 96 Q100 112 118 96" stroke="#7a3b00" stroke-width="4" fill="none" stroke-linecap="round"/>
+<ellipse cx="50" cy="112" rx="10" ry="16" fill="#ffd93b" stroke="#c9a400" stroke-width="3"/>
+<ellipse cx="150" cy="112" rx="10" ry="16" fill="#ffd93b" stroke="#c9a400" stroke-width="3"/>
+<rect x="72" y="162" width="20" height="14" rx="6" fill="#222"/><rect x="108" y="162" width="20" height="14" rx="6" fill="#222"/>
+</svg>`;
+
+// ---------- sounds (made with the browser, no files) ----------
+let AC;
+function ac(){
+  if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
+  if(AC&&AC.state==='suspended')AC.resume();
+  return AC;
+}
+function tone(f,d,type,v,t0,f2){
+  const c=ac();if(!c)return;
+  const o=c.createOscillator(),g=c.createGain(),t=c.currentTime+(t0||0);
+  o.type=type||'sine';o.frequency.setValueAtTime(f,t);
+  if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(v||.2,t+.02);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+d+.05);
+}
+const rnd=(a,b)=>a+Math.random()*(b-a);
+function sndElephant(){tone(260,.5,'sawtooth',.14,0,560);tone(560,.4,'sawtooth',.12,.45,380)}
+function sndMinion(){for(let i=0;i<6;i++)tone(rnd(500,1300),.09,'square',.07,i*.1,rnd(500,1300))}
+function sndYay(){[523,659,784,1047].forEach((f,i)=>tone(f,.18,'triangle',.18,i*.1))}
+function sndOops(){tone(300,.25,'sine',.15,0,180)}
+
+// ---------- character ----------
+let who=load('who')||'elephant';
+function load(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function save(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+const ch=document.getElementById('ch'),bubble=document.getElementById('bubble');
+function drawChar(){ch.innerHTML=who==='elephant'?ELEPHANT:MINION}
+let bt;
+function say(txt){bubble.textContent=txt;bubble.classList.add('on');clearTimeout(bt);bt=setTimeout(()=>bubble.classList.remove('on'),2800)}
+function bounce(){ch.classList.remove('bounce');void ch.offsetWidth;ch.classList.add('bounce')}
+function charSound(){who==='elephant'?sndElephant():sndMinion()}
+ch.onclick=()=>{charSound();bounce();say(who==='elephant'?'טרווווווו! 🐘':'בננה! 🍌')};
+document.getElementById('sw').onclick=()=>{
+  who=who==='elephant'?'minion':'elephant';save('who',who);drawChar();charSound();bounce();
+  say(who==='elephant'?'אני פיל חד קרן!':'בלה בלה בנאנה!');
+};
+document.addEventListener('pointerdown',()=>ac(),{once:true});
+
+// ---------- stars ----------
+let stars=parseInt(load('stars')||'0',10)||0;
+const starsEl=document.getElementById('stars');
+function showStars(){starsEl.textContent='⭐ '+stars}
+function addStar(){stars++;save('stars',stars);showStars()}
+
+// ---------- shapes ----------
+const SHAPES=[
+ {id:'circle',he:'עיגול',sides:0},{id:'triangle',he:'משולש',sides:3},{id:'square',he:'ריבוע',sides:4},
+ {id:'rect',he:'מלבן',sides:4},{id:'pent',he:'מחומש',sides:5},{id:'hex',he:'משושה',sides:6},{id:'oct',he:'מתומן',sides:8}];
+const COLORS=['#ff7eb6','#ffb347','#5fd68a','#6fb4ff','#b58cff','#ff6b6b','#2ec4b6'];
+function poly(n,rot){
+  let pts=[];for(let i=0;i<n;i++){const a=rot+i*2*Math.PI/n;pts.push((50+42*Math.cos(a)).toFixed(1)+','+(50+42*Math.sin(a)).toFixed(1))}
+  return pts.join(' ');
+}
+function shapeSvg(s,col){
+  const st=`fill="${col}" stroke="#23305a" stroke-width="3" stroke-linejoin="round"`;
+  let b;
+  switch(s.id){
+    case'circle':b=`<circle cx="50" cy="50" r="40" ${st}/>`;break;
+    case'square':b=`<rect x="14" y="14" width="72" height="72" ${st}/>`;break;
+    case'rect':b=`<rect x="6" y="27" width="88" height="46" ${st}/>`;break;
+    case'triangle':b=`<polygon points="${poly(3,-Math.PI/2)}" ${st}/>`;break;
+    case'pent':b=`<polygon points="${poly(5,-Math.PI/2)}" ${st}/>`;break;
+    case'hex':b=`<polygon points="${poly(6,0)}" ${st}/>`;break;
+    case'oct':b=`<polygon points="${poly(8,Math.PI/8)}" ${st}/>`;break;
+  }
+  return `<svg viewBox="0 0 100 100">${b}</svg>`;
+}
+const shuffle=a=>a.map(x=>[Math.random(),x]).sort((p,q)=>p[0]-q[0]).map(p=>p[1]);
+
+// ---------- screens ----------
+const main=document.getElementById('main');
+function home(){
+  main.innerHTML=`<div class="q">לאן נטייל היום?</div><div class="map">
+   <button class="tile" id="g1"><span class="em">🔍</span>בלש הצורות</button>
+   <button class="tile" id="g3"><span class="em">🏗️</span>בונים צורה</button>
+   <button class="tile" id="g2"><span class="em">📏</span>מודדים עם סרגל</button>
+   <button class="tile" id="g6"><span class="em">📐</span>ציידי הזוויות</button>
+   <button class="tile" id="g7"><span class="em">🔲</span>מודדים היקף</button>
+   <button class="tile" id="g8"><span class="em">📊</span>דיאגרמה</button>
+   <button class="tile" id="g4"><span class="em">🪞</span>מראה קסומה</button>
+   <button class="tile" id="g5"><span class="em">🏰</span>בונים טירה</button></div>`;
+  document.getElementById('g1').onclick=()=>detective();
+  document.getElementById('g2').onclick=()=>rulerGame();
+  document.getElementById('g3').onclick=()=>buildGame();
+  document.getElementById('g4').onclick=()=>mirrorGame();
+  document.getElementById('g5').onclick=()=>castleGame();
+  document.getElementById('g6').onclick=()=>angleGame();
+  document.getElementById('g7').onclick=()=>perimGame();
+  document.getElementById('g8').onclick=()=>chartGame();
+  main.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{sndOops();say('זה יגיע בקרוב!')});
+  say(who==='elephant'?'היי! בואי נשחק!':'בלה בלה! בואי נשחק!');
+}
+document.getElementById('home').onclick=home;
+
+// ---------- game 1: shape detective ----------
+function detective(){
+  const TOTAL=8;let n=0,got=0;
+  function round(){
+    if(n>=TOTAL){
+      main.innerHTML=`<div class="center"><div style="font-size:90px">🏆</div><div class="q">כל הכבוד! קיבלת ${got} כוכבים!</div>
+        <button class="big" id="again">שוב!</button></div>`;
+      document.getElementById('again').onclick=detective;
+      sndYay();say('את בלשית צורות מעולה!');bounce();return;
+    }
+    const bySides=Math.random()<.4;
+    let target,pool;
+    if(bySides){
+      target=shuffle(SHAPES.filter(s=>s.sides>0))[0];
+      pool=SHAPES.filter(s=>s.sides!==target.sides);
+    }else{
+      target=shuffle(SHAPES)[0];
+      pool=SHAPES.filter(s=>s.id!==target.id);
+    }
+    const opts=shuffle([target,...shuffle(pool).slice(0,4)]);
+    const cols=shuffle(COLORS);
+    const text=bySides?`מצאי את הצורה שיש לה ${target.sides} צלעות`:`מצאי את ה${target.he}`;
+    main.innerHTML=`<div class="dots">${Array.from({length:TOTAL},(_,i)=>`<div class="dot ${i<n?'done':''}"></div>`).join('')}</div>
+      <div class="q">${text}</div>
+      <div class="cards">${opts.map((s,i)=>`<button class="card" data-i="${i}">${shapeSvg(s,cols[i])}</button>`).join('')}</div>
+      <div class="fb" id="fb"></div>`;
+    let first=true,locked=false;
+    main.querySelectorAll('.card').forEach(btn=>btn.onclick=()=>{
+      if(locked)return;
+      const s=opts[+btn.dataset.i],fb=document.getElementById('fb');
+      if(s===target){
+        locked=true;btn.classList.add('ok');
+        if(first){got++;addStar()}
+        sndYay();bounce();
+        fb.textContent=(s.sides?`${s.he}: ${s.sides} צלעות`:`${s.he}: אין לו צלעות, הוא עגול`)+' ⭐';
+        say(who==='elephant'?'יששש!':'בננה!');
+                n++;setTimeout(round,2200);
+      }else{
+        first=false;btn.classList.add('no');sndOops();
+        fb.textContent='כמעט! נסי שוב 💪';say('נסי עוד פעם!');
+        setTimeout(()=>btn.classList.remove('no'),450);
+      }
+    });
+  }
+  round();
+}
+
+// ---------- game 2: measure with a school ruler ----------
+function rulerGame(){
+  const TOTAL=6,U=50,RL=16; // 50 units = 1 cm, ruler is 16 cm
+  let n=0,got=0;
+  function rulerSvg(){
+    let t='';
+    for(let m=0;m<=RL*10;m++){
+      const x=20+m*U/10,len=m%10===0?34:m%5===0?24:13;
+      t+=`<line x1="${x}" y1="0" x2="${x}" y2="${len}" stroke="#23305a" stroke-width="${m%10===0?2.5:1.2}"/>`;
+      if(m%10===0)t+=`<text x="${x}" y="58" font-size="20" font-weight="700" text-anchor="middle" fill="#23305a">${m/10}</text>`;
+    }
+    return `<g id="ruler" transform="translate(30,230)" style="cursor:grab">
+      <rect x="0" y="0" width="${RL*U+40}" height="76" rx="6" fill="rgba(120,200,255,.6)" stroke="#23305a" stroke-width="2.5"/>
+      ${t}<text x="${RL*U+10}" y="72" font-size="14" text-anchor="end" fill="#23305a">cm</text></g>`;
+  }
+  function round(){
+    if(n>=TOTAL){
+      main.innerHTML=`<div class="center"><div style="font-size:90px">📏</div><div class="q">מדהים! מדדת נכון ${got} פעמים בניסיון הראשון!</div>
+        <button class="big" id="again">שוב!</button></div>`;
+      document.getElementById('again').onclick=rulerGame;
+      sndYay();say('את מודדת מעולה!');bounce();return;
+    }
+    const L=3+Math.floor(Math.random()*9),x0=90+Math.floor(Math.random()*160),y0=90;
+    const w=L*U,body=w-30,col=shuffle(COLORS)[0];
+    const obj=`<rect x="${x0}" y="${y0}" width="22" height="40" fill="#ff9ec6" stroke="#23305a" stroke-width="2.5"/>
+      <rect x="${x0+22}" y="${y0}" width="${body-22}" height="40" fill="${col}" stroke="#23305a" stroke-width="2.5"/>
+      <polygon points="${x0+body},${y0} ${x0+w},${y0+20} ${x0+body},${y0+40}" fill="#ffe2b0" stroke="#23305a" stroke-width="2.5"/>
+      <polygon points="${x0+w-9},${y0+14} ${x0+w},${y0+20} ${x0+w-9},${y0+26}" fill="#333"/>`;
+    const ans=new Set([L]);
+    while(ans.size<4){const c=L+Math.floor(Math.random()*7)-3;if(c>0)ans.add(c)}
+    const opts=shuffle([...ans]);
+    main.innerHTML=`<div class="dots">${Array.from({length:TOTAL},(_,i)=>`<div class="dot ${i<n?'done':''}"></div>`).join('')}</div>
+      <div class="q">גררי את הסרגל ומדדי: כמה ס"מ אורך העיפרון?</div>
+      <svg id="sc" viewBox="0 0 1000 340" style="width:100%;background:#fff;border-radius:22px;box-shadow:0 5px 0 #0002;touch-action:none">
+        ${obj}${rulerSvg()}</svg>
+      <div class="cards" style="grid-template-columns:repeat(4,1fr);max-width:560px;margin:14px auto 0">
+        ${opts.map(o=>`<button class="big" data-v="${o}" style="background:var(--blue)">${o}</button>`).join('')}</div>
+      <div class="fb" id="fb"></div>`;
+    // dragging (works with finger and mouse)
+    const svg=document.getElementById('sc'),r=document.getElementById('ruler');
+    let rx=30,ry=230,drag=null;
+    const pt=e=>{const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(svg.getScreenCTM().inverse())};
+    r.addEventListener('pointerdown',e=>{const p=pt(e);drag={dx:p.x-rx,dy:p.y-ry};r.setPointerCapture(e.pointerId);e.preventDefault()});
+    r.addEventListener('pointermove',e=>{
+      if(!drag)return;const p=pt(e);
+      rx=Math.max(-100,Math.min(1000-RL*U-40+100,p.x-drag.dx));ry=Math.max(0,Math.min(264,p.y-drag.dy));
+      r.setAttribute('transform',`translate(${rx},${ry})`);
+    });
+    const up=()=>{drag=null};r.addEventListener('pointerup',up);r.addEventListener('pointercancel',up);
+    let first=true,locked=false;
+    main.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{
+      if(locked)return;const fb=document.getElementById('fb');
+      if(+b.dataset.v===L){
+        locked=true;if(first){got++;addStar()}sndYay();bounce();
+        fb.textContent=`נכון! ${L} ס"מ ⭐`;say(who==='elephant'?'יששש!':'בננה!');
+                n++;setTimeout(round,2000);
+      }else{
+        first=false;sndOops();fb.textContent='נסי שוב! הצמידי את ה-0 לתחילת העיפרון 💪';say('נסי עוד פעם!');
+      }
+    });
+  }
+  say('סרגל כמו בבית הספר!');round();
+}
+
+// ---------- game 3: build a shape on a peg board ----------
+function buildGame(){
+  const TASKS=[
+    {t:'בני משולש',n:3,k:'tri',fact:'למשולש יש 3 צלעות ו-3 פינות'},
+    {t:'בני משולש עם זווית ישרה',n:3,k:'rtri',fact:'זווית ישרה היא פינה כמו של דף נייר'},
+    {t:'בני ריבוע',n:4,k:'sq',fact:'בריבוע כל 4 הצלעות שוות וכל 4 הזוויות ישרות'},
+    {t:'בני מלבן (שאינו ריבוע)',n:4,k:'rect',fact:'במלבן 4 זוויות ישרות, והצלעות שממול שוות'},
+    {t:'בני מחומש',n:5,k:'pent',fact:'למחומש יש 5 צלעות'},
+    {t:'בני מלבן: אורך 4 יחידות ורוחב 2 יחידות',n:4,k:'rect',dims:[4,2],fact:'מלבן 4 על 2'},
+    {t:'בני ריבוע שאורך כל צלע שלו 3 יחידות',n:4,k:'sq',side:3,fact:'ריבוע עם צלע 3'}
+  ];
+  const TOTAL=6,S=60,OX=30,OY=30,GX=9,GY=7; // grid: 10 x 8 points
+  const tasks=shuffle(TASKS).slice(0,TOTAL);
+  let n=0,got=0;
+  function sortPts(ps){
+    const cx=ps.reduce((a,p)=>a+p.x,0)/ps.length,cy=ps.reduce((a,p)=>a+p.y,0)/ps.length;
+    return ps.slice().sort((p,q)=>Math.atan2(p.y-cy,p.x-cx)-Math.atan2(q.y-cy,q.x-cx));
+  }
+  function analyze(ps){
+    const m=ps.length,cr=[],dt=[],len=[];
+    for(let i=0;i<m;i++){
+      const a=ps[i],b=ps[(i+1)%m],c=ps[(i+2)%m];
+      const ux=b.x-a.x,uy=b.y-a.y,vx=c.x-b.x,vy=c.y-b.y;
+      cr.push(ux*vy-uy*vx);dt.push(ux*vx+uy*vy);len.push(ux*ux+uy*uy);
+    }
+    return{cr,dt,len,convex:cr.every(x=>x>0)||cr.every(x=>x<0)};
+  }
+  function ok(task,ps){
+    const A=analyze(sortPts(ps)),right=A.dt.every(d=>d===0);
+    if(!A.convex)return false;
+    switch(task.k){
+      case'tri':return true;
+      case'rtri':return A.dt.some(d=>d===0);
+      case'pent':return true;
+      case'sq':return right&&A.len.every(l=>l===A.len[0])&&(!task.side||A.len[0]===task.side*task.side);
+      case'rect':{
+        if(!right)return false;
+        if(task.dims){const want=[task.dims[0]**2,task.dims[0]**2,task.dims[1]**2,task.dims[1]**2].sort((a,b)=>a-b);
+          return A.len.slice().sort((a,b)=>a-b).every((l,i)=>l===want[i])}
+        return A.len[0]!==A.len[1];
+      }
+    }
+  }
+  function round(){
+    if(n>=TOTAL){
+      main.innerHTML=`<div class="center"><div style="font-size:90px">🏗️</div><div class="q">בנית ${got} צורות נכון בניסיון הראשון!</div>
+        <button class="big" id="again">שוב!</button></div>`;
+      document.getElementById('again').onclick=buildGame;
+      sndYay();say('את בונה צורות מעולה!');bounce();return;
+    }
+    const task=tasks[n];
+    const pegs=Array.from({length:task.n},(_,i)=>({x:1+i*2,y:0})); // start in a straight row (top, away from the character)
+    const px=p=>OX+p.x*S,py=p=>OY+p.y*S;
+    let dots='';
+    for(let i=0;i<=GX;i++)for(let j=0;j<=GY;j++)dots+=`<circle cx="${OX+i*S}" cy="${OY+j*S}" r="4" fill="#9aa7c7"/>`;
+    main.innerHTML=`<div class="dots">${Array.from({length:TOTAL},(_,i)=>`<div class="dot ${i<n?'done':''}"></div>`).join('')}</div>
+      <div class="q">${task.t}</div>
+      <div class="center" style="margin:-4px 0 8px">גררי את הנקודות הצהובות על הלוח</div>
+      <svg id="bd" viewBox="0 0 600 480" style="width:100%;max-height:58vh;background:#fff;border-radius:22px;box-shadow:0 5px 0 #0002;touch-action:none">
+        ${dots}<g id="dyn"></g>
+        ${pegs.map((p,i)=>`<g class="peg" data-i="${i}" style="cursor:grab"><circle r="30" fill="transparent"/><circle r="17" fill="#ffd23f" stroke="#23305a" stroke-width="3"/></g>`).join('')}
+      </svg>
+      <div class="center" style="margin-top:12px"><button class="big" id="chk" style="background:var(--green)">בדקי ✅</button>
+        <button class="big" id="rst" style="background:var(--blue);margin-inline-start:10px">מההתחלה 🔄</button></div>
+      <div class="fb" id="fb"></div>`;
+    const svg=document.getElementById('bd'),dyn=document.getElementById('dyn'),els=[...svg.querySelectorAll('.peg')];
+    function draw(){
+      els.forEach((g,i)=>g.setAttribute('transform',`translate(${px(pegs[i])},${py(pegs[i])})`));
+      const o=sortPts(pegs),m=o.length,A=analyze(o);
+      let h=`<polygon points="${o.map(p=>px(p)+','+py(p)).join(' ')}" fill="rgba(111,180,255,.35)" stroke="#23305a" stroke-width="4" stroke-linejoin="round"/>`;
+      for(let i=0;i<m;i++){
+        const a=o[i],b=o[(i+1)%m],c=o[(i+2)%m];
+        if(A.dt[i]===0&&A.cr[i]!==0){ // right-angle mark at vertex b
+          const u=[a.x-b.x,a.y-b.y],v=[c.x-b.x,c.y-b.y],lu=Math.hypot(...u),lv=Math.hypot(...v),k=16;
+          const p0=[px(b)+u[0]/lu*k,py(b)+u[1]/lu*k],p2=[px(b)+v[0]/lv*k,py(b)+v[1]/lv*k],p1=[p0[0]+p2[0]-px(b),p0[1]+p2[1]-py(b)];
+          h+=`<polyline points="${p0} ${p1} ${p2}" fill="none" stroke="#e63946" stroke-width="3"/>`;
+        }
+        if(a.x===b.x||a.y===b.y){ // length label on straight sides
+          const L=Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
+          h+=`<text x="${(px(a)+px(b))/2}" y="${(py(a)+py(b))/2-8}" font-size="20" font-weight="700" text-anchor="middle" fill="#e63946">${L}</text>`;
+        }
+      }
+      dyn.innerHTML=h;
+    }
+    draw();
+    const pt=e=>{const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(svg.getScreenCTM().inverse())};
+    let di=-1,first=true,locked=false;
+    svg.addEventListener('pointerdown',e=>{const g=e.target.closest('.peg');if(!g||locked)return;di=+g.dataset.i;svg.setPointerCapture(e.pointerId);e.preventDefault()});
+    svg.addEventListener('pointermove',e=>{
+      if(di<0)return;const p=pt(e);
+      const x=Math.max(0,Math.min(GX,Math.round((p.x-OX)/S))),y=Math.max(0,Math.min(GY,Math.round((p.y-OY)/S)));
+      if(pegs.some((q,i)=>i!==di&&q.x===x&&q.y===y))return;
+      if(pegs[di].x!==x||pegs[di].y!==y){pegs[di].x=x;pegs[di].y=y;draw()}
+    });
+    const up=()=>{di=-1};svg.addEventListener('pointerup',up);svg.addEventListener('pointercancel',up);
+    document.getElementById('rst').onclick=()=>{if(locked)return;pegs.forEach((p,i)=>{p.x=1+i*2;p.y=0});draw()};
+    document.getElementById('chk').onclick=()=>{
+      if(locked)return;const fb=document.getElementById('fb');
+      if(ok(task,pegs)){
+        locked=true;if(first){got++;addStar()}sndYay();bounce();
+        fb.textContent=task.fact+' ⭐';say(who==='elephant'?'יששש!':'בננה!');
+                n++;setTimeout(round,3000);
+      }else{
+        first=false;sndOops();
+        fb.textContent=(task.k==='sq'||task.k==='rect'||task.k==='rtri')?'כמעט! חפשי את הסימן האדום של הזווית הישרה 💪':'כמעט! הזיזי עוד נקודה ונסי שוב 💪';
+        say('נסי עוד פעם!');
+      }
+    };
+  }
+  say('בואי נבנה צורות!');round();
+}
+
+// ---------- game 4: magic mirror (symmetry) ----------
+function mirrorGame(){
+  const TOTAL=6,C=56;
+  const plan=[['v',4],['v',5],['v',6],['v',8],['h',5],['h',7]]; // first vertical mirror, then horizontal
+  let n=0,got=0;
+  function round(){
+    if(n>=TOTAL){
+      main.innerHTML=`<div class="center"><div style="font-size:90px">🪞</div><div class="q">הקסם עבד! ${got} ציורים נכונים בניסיון הראשון!</div>
+        <button class="big" id="again">שוב!</button></div>`;
+      document.getElementById('again').onclick=mirrorGame;
+      sndYay();say('את קוסמת של סימטריה!');bounce();return;
+    }
+    const [mode,k]=plan[n],V=mode==='v';
+    const cols=V?8:5,rows=V?5:8,W=cols*C,H=rows*C;
+    const mir=(c,r)=>V?[7-c,r]:[c,7-r];
+    const srcAll=[];
+    for(let c=0;c<cols;c++)for(let r=0;r<rows;r++)if(V?c<4:r<4)srcAll.push([c,r]);
+    const src=shuffle(srcAll).slice(0,k);
+    const srcSet=new Set(src.map(p=>p.join()));
+    const target=new Set(src.map(([c,r])=>mir(c,r).join()));
+    const color=shuffle(COLORS)[0],EMPTY='#f4f7ff';
+    const mine=new Set();
+    let g='';
+    for(let c=0;c<cols;c++)for(let r=0;r<rows;r++){
+      const key=c+','+r,isSrc=V?c<4:r<4;
+      g+=`<rect ${isSrc?'':`class="tc" data-k="${key}" style="cursor:pointer"`} x="${c*C+2}" y="${r*C+2}" width="${C-4}" height="${C-4}" rx="8"
+        fill="${srcSet.has(key)?color:EMPTY}" stroke="${isSrc?'#9aa7c7':'#23305a'}" stroke-width="2" ${isSrc?'':'stroke-dasharray="6 4"'}/>`;
+    }
+    const line=V?`<line x1="${W/2}" y1="0" x2="${W/2}" y2="${H}" stroke="#e63946" stroke-width="6"/><text x="${W/2}" y="-6" font-size="26" text-anchor="middle">🪞</text>`
+                :`<line x1="0" y1="${H/2}" x2="${W}" y2="${H/2}" stroke="#e63946" stroke-width="6"/><text x="${W+2}" y="${H/2+9}" font-size="26">🪞</text>`;
+    main.innerHTML=`<div class="dots">${Array.from({length:TOTAL},(_,i)=>`<div class="dot ${i<n?'done':''}"></div>`).join('')}</div>
+      <div class="q">${V?'המראה הקסומה במרכז: צבעי בצד השני את הבבואה':'המראה הקסומה באמצע: צבעי למטה את הבבואה'}</div>
+      <svg id="mr" viewBox="-6 -34 ${W+46} ${H+40}" style="width:100%;max-width:${V?720:380}px;max-height:58vh;display:block;margin:0 auto;background:#fff;border-radius:22px;box-shadow:0 5px 0 #0002;padding:6px">${g}${line}</svg>
+      <div class="center" style="margin-top:12px"><button class="big" id="chk" style="background:var(--green)">בדקי ✅</button></div>
+      <div class="fb" id="fb"></div>`;
+    const svg=document.getElementById('mr');
+    let first=true,locked=false;
+    svg.addEventListener('click',e=>{
+      const key=e.target.dataset&&e.target.dataset.k;if(!key||locked)return;
+      if(mine.has(key)){mine.delete(key);e.target.setAttribute('fill',EMPTY)}else{mine.add(key);e.target.setAttribute('fill',color)}
+      tone(rnd(500,800),.08,'sine',.12);
+    });
+    const plural=(x,one,many)=>x===1?one:`${x} ${many}`;
+    document.getElementById('chk').onclick=()=>{
+      if(locked)return;const fb=document.getElementById('fb');
+      const missing=[...target].filter(x=>!mine.has(x)).length,extra=[...mine].filter(x=>!target.has(x)).length;
+      if(!missing&&!extra){
+        locked=true;if(first){got++;addStar()}sndYay();bounce();
+        fb.textContent='מושלם! הבבואה נמצאת באותו מרחק מהמראה ⭐';say(who==='elephant'?'יששש!':'בננה!');
+                n++;setTimeout(round,2600);
+      }else{
+        first=false;sndOops();
+        const parts=[];
+        if(missing)parts.push(missing===1?'חסרה משבצת אחת':`חסרות ${missing} משבצות`);
+        if(extra)parts.push(extra===1?'יש משבצת אחת מיותרת':`יש ${extra} משבצות מיותרות`);
+        fb.textContent='כמעט! '+parts.join(' ו')+' 💪';say('נסי עוד פעם!');
+      }
+    };
+  }
+  say('מה שיש בצד אחד, יופיע גם בצד השני!');round();
+}
+
+// ---------- game 5: build a castle from shapes ----------
+function castleGame(){
+  const DEF={circle:{s:0,w:56,h:56},tri:{s:3,w:64,h:56},square:{s:4,w:54,h:54},rect:{s:4,w:84,h:44},
+             pent:{s:5,w:62,h:60},hex:{s:6,w:68,h:58},oct:{s:8,w:60,h:60}};
+  const NAME={circle:'עיגול',tri:'משולש',square:'ריבוע',rect:'מלבן',pent:'מחומש',hex:'משושה',oct:'מתומן'};
+  const SOLID='stroke="#23305a" stroke-width="3" stroke-linejoin="round"';
+  const GHOST='fill="rgba(35,48,90,.08)" stroke="#23305a" stroke-width="3" stroke-dasharray="9 7" stroke-linejoin="round"';
+  function shape(id,w,h,st){
+    const P=(n,rot)=>Array.from({length:n},(_,i)=>{const a=rot+i*2*Math.PI/n;return (Math.cos(a)*w/2).toFixed(1)+','+(Math.sin(a)*h/2).toFixed(1)}).join(' ');
+    switch(id){
+      case'circle':return `<ellipse rx="${w/2}" ry="${h/2}" ${st}/>`;
+      case'square':case'rect':return `<rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="3" ${st}/>`;
+      case'tri':return `<polygon points="0,${-h/2} ${w/2},${h/2} ${-w/2},${h/2}" ${st}/>`;
+      case'pent':return `<polygon points="${P(5,-Math.PI/2)}" ${st}/>`;
+      case'hex':return `<polygon points="${P(6,0)}" ${st}/>`;
+      case'oct':return `<polygon points="${P(8,Math.PI/8)}" ${st}/>`;
+    }
+  }
+  const LEVELS=[
+    {name:'בית קטן',sides:false,tray:['rect','rect','tri','circle','pent','square'],slots:[
+      {t:'rect',x:400,y:290,w:300,h:130},{t:'tri',x:400,y:165,w:340,h:110},{t:'rect',x:400,y:315,w:56,h:84},{t:'circle',x:300,y:265,w:44,h:44}]},
+    {name:'טירה עם שני מגדלים',sides:false,tray:['rect','rect','rect','tri','tri','square','circle','circle','hex','oct'],slots:[
+      {t:'rect',x:400,y:320,w:250,h:110},{t:'rect',x:255,y:260,w:80,h:210},{t:'rect',x:545,y:260,w:80,h:210},
+      {t:'tri',x:255,y:112,w:110,h:80},{t:'tri',x:545,y:112,w:110,h:80},{t:'square',x:400,y:340,w:60,h:60},
+      {t:'circle',x:255,y:225,w:38,h:38},{t:'circle',x:545,y:225,w:38,h:38}]},
+    {name:'טירת הקסמים (לפי מספר צלעות)',sides:true,tray:['rect','rect','square','tri','tri','pent','circle','hex','oct'],slots:[
+      {sd:4,x:400,y:335,w:300,h:100},{sd:4,x:255,y:270,w:76,h:190},{sd:4,x:545,y:270,w:76,h:190},
+      {sd:3,x:255,y:120,w:110,h:80},{sd:3,x:545,y:120,w:110,h:80},{sd:5,x:400,y:215,w:100,h:96},
+      {sd:0,x:700,y:70,w:64,h:64},{sd:6,x:400,y:335,w:70,h:60}]}
+  ];
+  let li=0,got=0;
+  function level(){
+    if(li>=LEVELS.length){
+      main.innerHTML=`<div class="center"><div style="font-size:90px">🏰</div><div class="q">בנית 3 טירות! ${got} מהן בלי טעויות!</div>
+        <button class="big" id="again">שוב!</button></div>`;
+      document.getElementById('again').onclick=castleGame;
+      sndYay();say('את אדריכלית מעולה!');bounce();return;
+    }
+    const L=LEVELS[li],W=800,H=530;
+    const match=(type,s)=>L.sides?DEF[type].s===s.sd:type===s.t;
+    const slots=L.slots.map(s=>({...s,filled:false}));
+    const cols=shuffle(COLORS);
+    const per=Math.ceil(L.tray.length/2);
+    const pcs=shuffle(L.tray).map((type,i)=>{
+      const row=i<per?0:1,idx=row?i-per:i,cnt=row?L.tray.length-per:per;
+      return{i,type,col:cols[i%cols.length],hx:300+(cnt>1?idx*(460/(cnt-1)):230),hy:row?495:435,placed:false};
+    });
+    const slotSvg=slots.map((s,i)=>{
+      const body=L.sides?`<rect x="${-s.w/2}" y="${-s.h/2}" width="${s.w}" height="${s.h}" rx="10" ${GHOST}/>
+          <text y="7" font-size="${s.w<90?15:22}" font-weight="800" text-anchor="middle" fill="#23305a">${s.sd} צלעות</text>`
+        :shape(s.t,s.w,s.h,GHOST);
+      return `<g id="sl${i}" transform="translate(${s.x},${s.y})">${body}</g>`;
+    }).join('');
+    const pcSvg=pcs.map(p=>`<g class="pc" data-i="${p.i}" transform="translate(${p.hx},${p.hy})" style="cursor:grab">
+        <rect x="-44" y="-34" width="88" height="68" fill="transparent"/>${shape(p.type,DEF[p.type].w,DEF[p.type].h,`fill="${p.col}" ${SOLID}`)}</g>`).join('');
+    main.innerHTML=`<div class="dots">${LEVELS.map((_,i)=>`<div class="dot ${i<li?'done':''}"></div>`).join('')}</div>
+      <div class="q">${L.name}: ${L.sides?'גררי כל צורה למקום עם מספר הצלעות הנכון':'גררי כל צורה למקום שלה בטירה'}</div>
+      <svg id="cs" viewBox="0 0 ${W} ${H}" style="width:100%;max-width:calc(60vh*800/530);margin:0 auto;border-radius:22px;overflow:hidden;box-shadow:0 5px 0 #0002;touch-action:none;display:block">
+        <rect x="0" y="0" width="${W}" height="400" fill="#d8f0ff"/><rect x="0" y="385" width="${W}" height="12" fill="#5fd68a"/><rect x="0" y="400" width="${W}" height="${H-400}" fill="#eef3ff"/>
+        ${slotSvg}<g id="done"></g>${pcSvg}</svg>
+      <div class="fb" id="fb"></div>`;
+    const svg=document.getElementById('cs'),fb=document.getElementById('fb'),els=[...svg.querySelectorAll('.pc')];
+    const pt=e=>{const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(svg.getScreenCTM().inverse())};
+    let drag=null,miss=0,left=slots.length;
+    const inSlot=(s,p)=>Math.hypot(s.x-p.x,s.y-p.y)<100||(Math.abs(s.x-p.x)<s.w/2&&Math.abs(s.y-p.y)<s.h/2);
+    const homeOf=p=>`translate(${p.hx},${p.hy})`;
+    svg.addEventListener('pointerdown',e=>{
+      const g=e.target.closest('.pc');if(!g)return;const p=pcs[+g.dataset.i];if(p.placed)return;
+      const q=pt(e);drag={p,g,dx:q.x-p.hx,dy:q.y-p.hy,x:p.hx,y:p.hy};
+      svg.appendChild(g);svg.setPointerCapture(e.pointerId);e.preventDefault();
+    });
+    svg.addEventListener('pointermove',e=>{
+      if(!drag)return;const q=pt(e);drag.x=q.x-drag.dx;drag.y=q.y-drag.dy;
+      drag.g.setAttribute('transform',`translate(${drag.x},${drag.y})`);
+    });
+    const drop=()=>{
+      if(!drag)return;const {p,g,x,y}=drag;drag=null;const at={x,y};
+      const cand=slots.filter(s=>!s.filled&&match(p.type,s)&&inSlot(s,at));
+      if(cand.length){
+        const s=cand.sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y))[0];
+        s.filled=true;p.placed=true;left--;
+        g.setAttribute('transform',`translate(${s.x},${s.y})`);g.style.cursor='default';
+        g.innerHTML=shape(p.type,s.w,s.h,`fill="${p.col}" ${SOLID}`);
+        tone(rnd(600,900),.12,'triangle',.15);fb.textContent='';
+        if(!left){
+          if(!miss){got++;addStar()}
+          sndYay();bounce();
+          document.getElementById('done').innerHTML=`<text x="400" y="50" font-size="40" font-weight="800" text-anchor="middle" fill="#e63946">🎉 הטירה מוכנה! 🎉</text>`;
+          fb.textContent=miss?'הטירה מוכנה!':'הטירה מוכנה בלי טעויות ⭐';
+          say(who==='elephant'?'יששש!':'בננה!');
+                    li++;setTimeout(level,3200);
+        }
+      }else{
+        g.setAttribute('transform',homeOf(p));
+        const near=slots.find(s=>!s.filled&&inSlot(s,at));
+        if(near){
+          miss++;sndOops();
+          fb.textContent=L.sides?`לצורה הזאת יש ${DEF[p.type].s} צלעות, אבל כאן צריך ${near.sd} 💪`:'הצורה הזאת לא מתאימה לכאן, נסי צורה אחרת 💪';
+          say('נסי עוד פעם!');
+        }
+      }
+    };
+    svg.addEventListener('pointerup',drop);svg.addEventListener('pointercancel',drop);
+  }
+  say('בואי נבנה טירה!');level();
+}
+
+// ---------- helpers for the next games ----------
+const rint=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+function numOpts(c){ // 4 different positive numbers around the right answer
+  const s=new Set([c]);let guard=0;
+  while(s.size<4&&guard++<200){const v=c+rint(-4,4);if(v>0)s.add(v)}
+  return shuffle([...s]);
+}
+function endScreen(emoji,text,again,sayTxt){
+  main.innerHTML=`<div class="center"><div style="font-size:90px">${emoji}</div><div class="q">${text}</div><button class="big" id="again">שוב!</button></div>`;
+  document.getElementById('again').onclick=again;sndYay();say(sayTxt);bounce();
+}
+function dotsHtml(n,t){return `<div class="dots">${Array.from({length:t},(_,i)=>`<div class="dot ${i<n?'done':''}"></div>`).join('')}</div>`}
+
+// ---------- game 6: angle hunters (with a set-square) ----------
+function angleGame(){
+  const TOTAL=6;let n=0,got=0;
+  const POOL={'חדה':[30,45,60,75],'ישרה':[90],'קהה':[110,120,135,150]};
+  const plan=shuffle(['חדה','ישרה','קהה','חדה','ישרה','קהה']);
+  const pol=(cx,cy,r,a)=>{const t=a*Math.PI/180;return[(cx+r*Math.cos(t)).toFixed(1),(cy+r*Math.sin(t)).toFixed(1)]};
+  function round(){
+    if(n>=TOTAL){endScreen('📐',`ציידת זוויות מעולה! ${got} תשובות נכונות בניסיון הראשון!`,angleGame,'את מומחית לזוויות!');return}
+    const kind=plan[n],deg=shuffle(POOL[kind])[0],rot=rint(0,359),cx=300,cy=190,R=150;
+    const p1=pol(cx,cy,R,rot),p2=pol(cx,cy,R,rot+deg),a1=pol(cx,cy,44,rot),a2=pol(cx,cy,44,rot+deg);
+    main.innerHTML=`${dotsHtml(n,TOTAL)}
+      <div class="q">איזו זווית זאת? השתמשי בגוניה 📐</div>
+      <div class="center" style="margin:-4px 0 8px">גררי את הגוניה לפינה של הזווית וסובבי אותה. הפינה הישרה של הגוניה היא זווית ישרה.</div>
+      <svg id="an" viewBox="0 0 600 380" style="width:100%;max-width:calc(55vh*600/380);margin:0 auto;display:block;background:#fff;border-radius:22px;box-shadow:0 5px 0 #0002;touch-action:none">
+        <line x1="${cx}" y1="${cy}" x2="${p1[0]}" y2="${p1[1]}" stroke="#23305a" stroke-width="6" stroke-linecap="round"/>
+        <line x1="${cx}" y1="${cy}" x2="${p2[0]}" y2="${p2[1]}" stroke="#23305a" stroke-width="6" stroke-linecap="round"/>
+        <path d="M${a1[0]} ${a1[1]} A44 44 0 0 1 ${a2[0]} ${a2[1]}" fill="none" stroke="#ff7eb6" stroke-width="5"/>
+        <circle cx="${cx}" cy="${cy}" r="6" fill="#23305a"/>
+        <g id="gn" transform="translate(40,360)" style="cursor:grab">
+          <polygon points="0,0 150,0 0,-150" fill="rgba(255,193,7,.55)" stroke="#b8860b" stroke-width="3" stroke-linejoin="round"/>
+          <polyline points="24,0 24,-24 0,-24" fill="none" stroke="#e63946" stroke-width="3"/>
+          <circle cx="0" cy="0" r="5" fill="#e63946"/>
+        </g></svg>
+      <div class="center" style="margin-top:10px"><button class="big" id="rl" style="background:var(--blue)">↺ סובבי</button>
+        <button class="big" id="rr" style="background:var(--blue)">↻ סובבי</button></div>
+      <div class="center" style="margin-top:10px">${['חדה','ישרה','קהה'].map(k=>`<button class="big" data-k="${k}" style="margin:4px">${k}</button>`).join('')}</div>
+      <div class="fb" id="fb"></div>`;
+    const svg=document.getElementById('an'),gn=document.getElementById('gn');
+    let gx=40,gy=360,gr=0,drag=null;
+    const put=()=>gn.setAttribute('transform',`translate(${gx},${gy}) rotate(${gr})`);
+    const pt=e=>{const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(svg.getScreenCTM().inverse())};
+    gn.addEventListener('pointerdown',e=>{const q=pt(e);drag={dx:q.x-gx,dy:q.y-gy};gn.setPointerCapture(e.pointerId);e.preventDefault()});
+    gn.addEventListener('pointermove',e=>{if(!drag)return;const q=pt(e);gx=Math.max(0,Math.min(600,q.x-drag.dx));gy=Math.max(0,Math.min(380,q.y-drag.dy));put()});
+    const up=()=>{drag=null};gn.addEventListener('pointerup',up);gn.addEventListener('pointercancel',up);
+    document.getElementById('rl').onclick=()=>{gr-=15;put()};
+    document.getElementById('rr').onclick=()=>{gr+=15;put()};
+    let first=true,locked=false;
+    main.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{
+      if(locked)return;const fb=document.getElementById('fb');
+      if(b.dataset.k===kind){
+        locked=true;if(first){got++;addStar()}sndYay();bounce();
+        fb.textContent=`נכון! ${deg}° - זווית ${kind}. ישרה: 90°, חדה: קטנה מ-90°, קהה: גדולה מ-90° ⭐`;
+        say(who==='elephant'?'יששש!':'בננה!');
+                n++;setTimeout(round,3200);
+      }else{
+        first=false;sndOops();fb.textContent='נסי שוב! הצמידי את הפינה הישרה של הגוניה לפינה של הזווית 💪';say('נסי עוד פעם!');
+      }
+    });
+  }
+  say('בואי נצוד זוויות!');round();
+}
+
+// ---------- game 7: perimeter ----------
+function perimGame(){
+  const TOTAL=6,S=44;let n=0,got=0;
+  function spec(i){
+    switch(i){
+      case 0:{const w=rint(3,5),h=rint(2,3);return{pts:[[0,0],[w,0],[w,h],[0,h]],grid:true,ans:2*(w+h)}}
+      case 1:{const w=rint(4,7),h=rint(3,4);return{pts:[[0,0],[w,0],[w,h],[0,h]],grid:true,ans:2*(w+h)}}
+      case 2:{const A=rint(4,6),D=rint(4,5),B=rint(1,2),C=rint(1,2);return{pts:[[0,0],[A,0],[A,B],[C,B],[C,D],[0,D]],grid:true,ans:2*(A+D)}}
+      case 3:{const w=rint(6,12),h=rint(3,7);return{pts:[[40,60],[360,60],[360,200],[40,200]],labels:[w,h,w,h],ans:2*(w+h)}}
+      case 4:{const v=shuffle([4,5,6,7,8,9]).slice(0,3);return{pts:[[40,240],[360,240],[200,40]],labels:v,ans:v[0]+v[1]+v[2]}}
+      default:{
+        const s=rint(3,9);
+        if(Math.random()<.5)return{pts:[[110,40],[290,40],[290,220],[110,220]],labels:[s,null,null,null],ans:4*s,note:'בריבוע כל הצלעות שוות'};
+        const hx=[0,1,2,3,4,5].map(k=>{const a=k*Math.PI/3;return[(200+100*Math.cos(a)).toFixed(0),(130+100*Math.sin(a)).toFixed(0)].map(Number)});
+        return{pts:hx,labels:[s,null,null,null,null,null],ans:6*s,note:'במשושה משוכלל כל 6 הצלעות שוות'};
+      }
+    }
+  }
+  function round(){
+    if(n>=TOTAL){endScreen('🔲',`מדדת היקף מעולה! ${got} תשובות נכונות בניסיון הראשון!`,perimGame,'את מומחית להיקף!');return}
+    const sp=spec(n);let body,vb,marks='',countHtml='';
+    if(sp.grid){
+      const mx=Math.max(...sp.pts.map(p=>p[0])),my=Math.max(...sp.pts.map(p=>p[1])),O=30;
+      vb=`0 0 ${mx*S+2*O} ${my*S+2*O}`;
+      let grid='';for(let i=0;i<=mx;i++)grid+=`<line x1="${O+i*S}" y1="${O}" x2="${O+i*S}" y2="${O+my*S}" stroke="#d5dcef" stroke-width="1.5"/>`;
+      for(let j=0;j<=my;j++)grid+=`<line x1="${O}" y1="${O+j*S}" x2="${O+mx*S}" y2="${O+j*S}" stroke="#d5dcef" stroke-width="1.5"/>`;
+      const P=sp.pts.map(p=>[O+p[0]*S,O+p[1]*S]);
+      for(let i=0;i<P.length;i++){
+        const a=sp.pts[i],b=sp.pts[(i+1)%P.length],steps=Math.abs(b[0]-a[0])+Math.abs(b[1]-a[1]),dx=Math.sign(b[0]-a[0]),dy=Math.sign(b[1]-a[1]);
+        for(let k=0;k<steps;k++){
+          const x1=O+(a[0]+dx*k)*S,y1=O+(a[1]+dy*k)*S,x2=x1+dx*S,y2=y1+dy*S;
+          marks+=`<g class="seg" style="cursor:pointer"><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#23305a" stroke-width="7" stroke-linecap="round"/>
+            <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="transparent" stroke-width="26"/></g>`;
+        }
+      }
+      body=`${grid}<polygon points="${P.map(p=>p.join(',')).join(' ')}" fill="rgba(111,180,255,.35)"/>${marks}`;
+      countHtml=`<div class="center" style="margin-top:6px;font-size:20px">סימנת: <b id="cnt">0</b></div>`;
+    }else{
+      vb='0 0 400 280';
+      const c=sp.pts.reduce((a,p)=>[a[0]+p[0]/sp.pts.length,a[1]+p[1]/sp.pts.length],[0,0]);
+      let lab='';
+      sp.pts.forEach((p,i)=>{
+        const q=sp.pts[(i+1)%sp.pts.length],v=sp.labels[i];if(v==null)return;
+        const mx=(p[0]+q[0])/2,my=(p[1]+q[1])/2,vx=mx-c[0],vy=my-c[1],l=Math.hypot(vx,vy)||1;
+        lab+=`<text x="${mx+vx/l*26}" y="${my+vy/l*26+7}" font-size="22" font-weight="800" text-anchor="middle" fill="#e63946">${v} ס"מ</text>`;
+      });
+      body=`<polygon points="${sp.pts.map(p=>p.join(',')).join(' ')}" fill="rgba(111,180,255,.35)" stroke="#23305a" stroke-width="5" stroke-linejoin="round"/>${lab}`;
+    }
+    const unit=sp.grid?'יחידות':'ס"מ',opts=numOpts(sp.ans);
+    main.innerHTML=`${dotsHtml(n,TOTAL)}
+      <div class="q">${sp.grid?'מה ההיקף של הצורה? (לחצי על הקווים כדי לספור)':'מה ההיקף של הצורה בס"מ?'}</div>
+      <svg id="pm" viewBox="${vb}" style="width:100%;max-width:calc(50vh*${vb.split(' ')[2]}/${vb.split(' ')[3]});margin:0 auto;display:block;background:#fff;border-radius:22px;box-shadow:0 5px 0 #0002">${body}</svg>
+      ${countHtml}${sp.note?`<div class="center" style="margin-top:6px">${sp.note}</div>`:''}
+      <div class="center" style="margin-top:10px">${opts.map(o=>`<button class="big" data-v="${o}" style="background:var(--blue);margin:4px;min-width:84px">${o}</button>`).join('')}</div>
+      <div class="fb" id="fb"></div>`;
+    let cnt=0;
+    main.querySelectorAll('.seg').forEach(g=>g.addEventListener('click',()=>{
+      const on=g.dataset.on!=='1';g.dataset.on=on?'1':'0';
+      g.querySelector('line').setAttribute('stroke',on?'#e63946':'#23305a');
+      cnt+=on?1:-1;document.getElementById('cnt').textContent=cnt;tone(on?700:500,.07,'sine',.1);
+    }));
+    let first=true,locked=false;
+    main.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{
+      if(locked)return;const fb=document.getElementById('fb');
+      if(+b.dataset.v===sp.ans){
+        locked=true;if(first){got++;addStar()}sndYay();bounce();
+        fb.textContent=`נכון! ההיקף הוא ${sp.ans} ${unit}. היקף הוא סכום אורכי כל הצלעות ⭐`;
+        say(who==='elephant'?'יששש!':'בננה!');
+                n++;setTimeout(round,3200);
+      }else{first=false;sndOops();fb.textContent='נסי שוב! היקף הוא סכום אורכי כל הצלעות 💪';say('נסי עוד פעם!')}
+    });
+  }
+  say('בואי נמדוד היקף!');round();
+}
+
+// ---------- game 8: diagrams (bar charts) ----------
+function chartGame(){
+  const TOTAL=6;let n=0,got=0;
+  const SETS=[
+    {t:'איזה פרי אהוב על ילדי הכיתה?',c:[['🍌','בננה'],['🍎','תפוח'],['🍇','ענבים'],['🍓','תות']]},
+    {t:'איזו חיית מחמד הכי אהובה?',c:[['🐶','כלב'],['🐱','חתול'],['🐰','ארנב'],['🐹','אוגר']]},
+    {t:'איזה ספורט ילדי הכיתה אוהבים?',c:[['⚽','כדורגל'],['🏀','כדורסל'],['🏊','שחייה'],['🥋','קראטה']]},
+    {t:'איזה טעם גלידה הכי טעים?',c:[['🍫','שוקולד'],['🍓','תות'],['🍦','וניל'],['🍋','לימון']]}
+  ];
+  const plan=['read','max','diff','sum','build','build'],COL=['#ff7eb6','#ffb347','#5fd68a','#6fb4ff'];
+  const base=290,U=26,bw=70,gap=130,x0=110;
+  const bx=i=>x0+i*gap;
+  function chart(vals,build){
+    let g='';
+    for(let v=0;v<=10;v++){
+      const y=base-v*U;
+      g+=`<line x1="80" y1="${y}" x2="570" y2="${y}" stroke="${v?'#d5dcef':'#23305a'}" stroke-width="${v?1.5:3}"/><text x="68" y="${y+5}" font-size="14" text-anchor="end" fill="#23305a">${v}</text>`;
+    }
+    return g+vals.map((v,i)=>`<rect x="${bx(i)-bw/2}" y="${base-v*U}" width="${bw}" height="${v*U}" rx="4" fill="${COL[i]}" stroke="#23305a" stroke-width="2.5"/>`).join('');
+  }
+  function round(){
+    if(n>=TOTAL){endScreen('📊',`קוראת דיאגרמות מעולה! ${got} תשובות נכונות בניסיון הראשון!`,chartGame,'את מומחית לדיאגרמות!');return}
+    const set=shuffle(SETS)[0],vals=shuffle([2,3,4,5,6,7,8,9]).slice(0,4),kind=plan[n];
+    const nm=i=>`${set.c[i][0]} ${set.c[i][1]}`;
+    const labels=set.c.map((c,i)=>`<text x="${bx(i)}" y="${base+34}" font-size="30" text-anchor="middle">${c[0]}</text><text x="${bx(i)}" y="${base+56}" font-size="16" font-weight="700" text-anchor="middle" fill="#23305a">${c[1]}</text>`).join('');
+    let q,ans,opts,mode='num';
+    const order=shuffle([0,1,2,3]);
+    if(kind==='read'){const i=order[0];q=`כמה ילדים בחרו: ${nm(i)}?`;ans=vals[i];opts=numOpts(ans)}
+    else if(kind==='max'){const i=vals.indexOf(Math.max(...vals));q='מה הכי אהוב? (העמודה הכי גבוהה)';ans=i;mode='cat'}
+    else if(kind==='diff'){
+      let a=order[0],b=order[1];if(vals[a]<vals[b])[a,b]=[b,a];
+      q=`כמה ילדים יותר בחרו ${nm(a)} מאשר ${nm(b)}?`;ans=vals[a]-vals[b];opts=numOpts(ans)}
+    else if(kind==='sum'){q='כמה ילדים בסך הכל ענו בסקר?';ans=vals.reduce((x,y)=>x+y,0);opts=numOpts(ans)}
+    else{q='בני את הדיאגרמה לפי הטבלה:'}
+    const build=kind==='build',cur=[0,0,0,0];
+    const table=build?`<div class="center" style="font-size:20px;font-weight:700;margin:4px 0 8px">${set.c.map((c,i)=>`<span style="background:#fff;border-radius:14px;padding:4px 12px;margin:3px;display:inline-block">${c[0]} ${c[1]}: ${vals[i]}</span>`).join('')}</div>`:'';
+    main.innerHTML=`${dotsHtml(n,TOTAL)}
+      <div class="center" style="font-size:20px;font-weight:700">${set.t}</div>
+      <div class="q">${q}</div>${table}
+      <svg id="ch" viewBox="0 0 600 ${build?400:340}" style="width:100%;max-width:calc(52vh*600/${build?400:340});margin:0 auto;display:block;background:#fff;border-radius:22px;box-shadow:0 5px 0 #0002;touch-action:manipulation"></svg>
+      ${build?'<div class="center" style="margin-top:10px"><button class="big" id="chk" style="background:var(--green)">בדקי ✅</button></div>':
+        `<div class="center" style="margin-top:10px">${mode==='cat'?set.c.map((c,i)=>`<button class="big" data-v="${i}" style="background:var(--blue);margin:4px">${c[0]} ${c[1]}</button>`).join(''):opts.map(o=>`<button class="big" data-v="${o}" style="background:var(--blue);margin:4px;min-width:84px">${o}</button>`).join('')}</div>`}
+      <div class="fb" id="fb"></div>`;
+    const svg=document.getElementById('ch');
+    function draw(){
+      let btn='';
+      if(build)btn=set.c.map((_,i)=>`<g data-i="${i}" data-d="-1" style="cursor:pointer"><circle cx="${bx(i)-24}" cy="${base+88}" r="19" fill="#ff7eb6" stroke="#23305a" stroke-width="2.5"/><text x="${bx(i)-24}" y="${base+96}" font-size="26" font-weight="800" text-anchor="middle" fill="#fff">−</text></g>
+        <g data-i="${i}" data-d="1" style="cursor:pointer"><circle cx="${bx(i)+24}" cy="${base+88}" r="19" fill="#5fd68a" stroke="#23305a" stroke-width="2.5"/><text x="${bx(i)+24}" y="${base+96}" font-size="26" font-weight="800" text-anchor="middle" fill="#fff">+</text></g>`).join('');
+      svg.innerHTML=chart(build?cur:vals,build)+labels+btn;
+    }
+    draw();
+    let first=true,locked=false;
+    const win=()=>{
+      locked=true;if(first){got++;addStar()}sndYay();bounce();
+      document.getElementById('fb').textContent='נכון! ⭐';say(who==='elephant'?'יששש!':'בננה!');
+            n++;setTimeout(round,2600);
+    };
+    const lose=t=>{first=false;sndOops();document.getElementById('fb').textContent=t;say('נסי עוד פעם!')};
+    if(build){
+      svg.addEventListener('click',e=>{
+        const g=e.target.closest('[data-d]');if(!g||locked)return;
+        const i=+g.dataset.i;cur[i]=Math.max(0,Math.min(10,cur[i]+ +g.dataset.d));draw();tone(rnd(500,800),.07,'sine',.1);
+      });
+      document.getElementById('chk').onclick=()=>{
+        if(locked)return;
+        if(cur.every((v,i)=>v===vals[i]))win();
+        else lose('כמעט! בדקי שכל עמודה מגיעה למספר שבטבלה 💪');
+      };
+    }else{
+      main.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{
+        if(locked)return;
+        if(+b.dataset.v===ans){win()}else lose('נסי שוב! הסתכלי על המספרים בצד השמאלי של הדיאגרמה 💪');
+      });
+    }
+  }
+  say('בואי נקרא דיאגרמות!');round();
+}
+
+drawChar();showStars();home();
+</script>
+</body>
+</html>
