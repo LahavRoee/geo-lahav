@@ -59,6 +59,9 @@ button{font-family:inherit}
 .big[disabled]{opacity:.4;cursor:default}
 .credit{margin-top:22px;font-size:16px;opacity:.85}
 .lvlbar{background:#fff6cf;border-radius:14px;padding:6px 12px;font-size:16px;text-align:center;margin:0 auto 8px;max-width:640px;font-weight:600}
+.tok{font-size:36px;font-weight:800;margin:0 6px;padding:2px 8px;border-radius:10px;display:inline-block}
+.opb{font-size:36px;font-weight:800;margin:0 6px;padding:0 14px;border:3px solid var(--ink);background:#fff;border-radius:12px;cursor:pointer;font-family:inherit}
+.hl{background:#ffe27f}
 </style>
 </head>
 <body>
@@ -124,8 +127,12 @@ function beep(f,d,type,v,t0,f2){
 const rnd=(a,b)=>a+Math.random()*(b-a);
 function sndElephant(){beep(260,.5,'sawtooth',.14,0,560);beep(560,.4,'sawtooth',.12,.45,380)}
 function sndMinion(){for(let i=0;i<6;i++)beep(rnd(500,1300),.09,'square',.07,i*.1,rnd(500,1300))}
-function sndYay(){[523,659,784,1047].forEach((f,i)=>beep(f,.18,'triangle',.18,i*.1))}
-function sndOops(){beep(300,.25,'sine',.15,0,180)}
+function sndYay(){ // a cute little "ding-ding-ding!", a bit different every time
+  const J=[[784,988,1319],[659,880,1175],[880,1109,1480]][Math.floor(Math.random()*3)];
+  J.forEach((f,i)=>{beep(f,.17,'sine',.17,i*.11,f*1.05);beep(f*2,.1,'sine',.035,i*.11)});
+  beep(1760,.14,'triangle',.05,.37,2093);
+}
+function sndOops(){} // no sound for a mistake
 
 // ---------- character ----------
 let who=load('who')||'elephant';
@@ -148,6 +155,17 @@ document.addEventListener('pointerdown',()=>ac(),{once:true});
 let stars=parseInt(load('stars')||'0',10)||0;
 const starsEl=document.getElementById('stars');
 function showStars(){starsEl.textContent='⭐ '+stars}
+// ---------- fresh questions: remember recent ones so they do not repeat ----------
+function isFresh(g,sig,keep){
+  let seen=[];try{seen=JSON.parse(load('sq_'+g)||'[]')}catch(e){}
+  if(seen.includes(sig))return false;
+  seen.push(sig);save('sq_'+g,JSON.stringify(seen.slice(-(keep||30))));return true;
+}
+function freshPick(g,list,sig,keep){
+  let seen=[];try{seen=JSON.parse(load('sq_'+g)||'[]')}catch(e){}
+  const c=shuffle(list.filter(x=>!seen.includes(sig(x)))),pick=(c.length?c:shuffle(list))[0];
+  seen.push(sig(pick));save('sq_'+g,JSON.stringify(seen.slice(-keep)));return pick;
+}
 let sessionGot=0;
 function addStar(){sessionGot++;stars++;save('stars',stars);showStars()}
 
@@ -178,7 +196,7 @@ const shuffle=a=>a.map(x=>[Math.random(),x]).sort((p,q)=>p[0]-q[0]).map(p=>p[1])
 
 // ---------- learning: explanations, levels, progress ----------
 const APP_VERSION='1.0';
-const GAMEFN={g1:()=>detective(),g2:()=>rulerGame(),g3:()=>buildGame(),g4:()=>mirrorGame(),g6:()=>angleGame(),g7:()=>perimGame(),g8:()=>chartGame(),g9:()=>spotAngleGame(),g10:()=>compareAngleGame(),g11:()=>polyAngleGame(),g12:()=>clockGame(),g13:()=>mysteryGame()};
+const GAMEFN={g1:()=>detective(),g2:()=>rulerGame(),g3:()=>buildGame(),g4:()=>mirrorGame(),g6:()=>angleGame(),g7:()=>perimGame(),g8:()=>chartGame(),g9:()=>spotAngleGame(),g10:()=>compareAngleGame(),g11:()=>polyAngleGame(),g12:()=>clockGame(),g13:()=>mysteryGame(),g14:()=>orderOpsGame(),g15:()=>divRemGame(),g16:()=>trianglesGame(),g17:()=>timePassGame()};
 const lvl=g=>Math.min(3,Math.max(1,parseInt(load('lvl_'+g)||'1',10)||1));
 const SVG_ANGLES=`<svg viewBox="0 0 360 120" style="width:100%;max-width:420px;display:block;margin:6px auto"><g stroke="#23305a" stroke-width="4" stroke-linecap="round" fill="none"><path d="M20 90 L100 90 M20 90 L70 35"/><path d="M140 90 L220 90 M140 90 L140 25"/><path d="M270 90 L345 90 M270 90 L215 50"/></g><path d="M154 90 L154 76 L140 76" stroke="#e63946" stroke-width="3" fill="none"/><g font-size="18" font-weight="700" fill="#23305a" text-anchor="middle"><text x="60" y="112">חדה</text><text x="180" y="112">ישרה</text><text x="285" y="112">קהה</text></g></svg>`;
 const SVG_PERIM=`<svg viewBox="0 0 360 120" style="width:100%;max-width:420px;display:block;margin:6px auto"><rect x="30" y="25" width="140" height="70" fill="rgba(111,180,255,.35)" stroke="#23305a" stroke-width="4"/><g font-size="20" font-weight="800" fill="#e63946" text-anchor="middle"><text x="100" y="18">4</text><text x="100" y="116">4</text><text x="188" y="66">2</text><text x="12" y="66">2</text></g><text x="280" y="66" font-size="20" font-weight="800" text-anchor="middle" fill="#23305a">4+2+4+2 = 12</text></svg>`;
@@ -248,7 +266,15 @@ const EXPLAIN={
  g12:{t:'לומדים שעון',h:`<ul><li>המחוג הקצר מראה <b>שעות</b>, והמחוג הארוך מראה <b>דקות</b>.</li><li>שעה היא 60 דקות, חצי שעה היא 30 דקות, ורבע שעה היא 15 דקות.</li><li>כל מספר על השעון הוא קפיצה של 5 דקות. אם המחוג הארוך על 3, אלה 15 דקות ולא 3!</li><li>כשהמחוג הארוך זז, גם המחוג הקצר זז לאט. ב-3:30 הוא באמצע בין 3 ל-4.</li></ul>`,
   lv:['שעות שלמות וחצאי שעה','גם רבעי שעה','כל חמש דקות']},
  g13:{t:'תעלומת הצורה',h:`<ul><li>כל רמז מוריד צורות שלא מתאימות.</li><li>בדקי את כל הרמזים לפני שאת בוחרת.</li><li>משתמשים בצלעות, בזוויות ובסימטריה.</li></ul>`,
-  lv:['שלושה רמזים וכמה צורות','רמזים שמתגלים אחד אחד','הרבה צורות, ורמזים שמתגלים אחד אחד']}
+  lv:['שלושה רמזים וכמה צורות','רמזים שמתגלים אחד אחד','הרבה צורות, ורמזים שמתגלים אחד אחד']},
+ g14:{t:'סדר פעולות החשבון',h:`<ul><li>כשיש בתרגיל כמה פעולות, יש סדר קבוע: 1) סוגריים, 2) כפל וחילוק, 3) חיבור וחיסור.</li><li>דוגמה: ב-3 + 4 × 2 קודם מכפילים: 4 × 2 = 8, ואחר כך 3 + 8 = 11.</li><li>סוגריים משנים את הסדר: (3 + 4) × 2 = 14.</li><li>פעולות מאותה דרגה, כמו כפל וחילוק, פותרים משמאל לימין.</li></ul>`,
+  lv:['חיבור וחיסור עם כפל או חילוק, בלי סוגריים','תרגילים עם סוגריים','תרגילים ארוכים יותר, בלי עזרה']},
+ g15:{t:'חילוק עם שארית',h:`<ul><li>כשחילוק לא יוצא מדויק, נשארים כמה פריטים. זאת <b>שארית</b>.</li><li>דוגמה: ב-17 ÷ 5 אפשר לארוז 3 קבוצות של 5 (זה 15), ונשארים 2. כותבים: 17 ÷ 5 = 3 ושארית 2.</li><li>השארית תמיד קטנה מהמחלק. אם היא שווה לו או גדולה ממנו, אפשר לארוז עוד קבוצה.</li><li>בדיקה: מחלק × מנה + שארית = המספר שחילקנו (5 × 3 + 2 = 17).</li></ul>`,
+  lv:['אורזים חפצים ומגלים את השארית','תרגילים עם מספרים, בלי תמונה','בעיות מילוליות']},
+ g16:{t:'משולשים',h:`<ul><li>למשולש יש 3 צלעות ו-3 זוויות.</li><li>לפי הצלעות: <b>שווה צלעות</b> (כל שלוש שוות), <b>שווה שוקיים</b> (שתיים שוות), <b>שונה צלעות</b> (כולן שונות).</li><li>לפי הזוויות: <b>חד זווית</b> (כל הזוויות חדות), <b>ישר זווית</b> (יש זווית ישרה), <b>קהה זווית</b> (יש זווית קהה).</li><li>במשולש יש לכל היותר זווית ישרה אחת או קהה אחת.</li></ul>`,
+  lv:['מסווגים לפי אורכי הצלעות','מסווגים לפי הזוויות','מוצאים משולש לפי שני תיאורים']},
+ g17:{t:'כמה זמן עבר?',h:`<ul><li>שעה אחת היא 60 דקות, ודקה אחת היא 60 שניות.</li><li>כדי לדעת כמה זמן עבר, סופרים קפיצות של 5 דקות על השעון, מהשעה שבה התחלנו עד שעת הסיום.</li><li>אפשר לעצור בשעה עגולה: מ-2:40 עד 3:00 עברו 20 דקות, ומ-3:00 עד 3:10 עוד 10 דקות.</li><li>כדי לדעת מה השעה בעוד זמן מסוים, מוסיפים את הדקות. אם עוברים 60 דקות, עוברים לשעה הבאה.</li></ul>`,
+  lv:['מוסיפים דקות לשעה','מחשבים כמה דקות עברו','ממירים יחידות וחוצים את השעה']}
 };
 const modal=document.createElement('div');modal.id='modal';document.body.appendChild(modal);
 const helpBtn=document.getElementById('help');
@@ -286,6 +312,7 @@ function home(){
   main.innerHTML=`<div class="q">לאן נטייל היום?</div><div class="map">
    ${tile('g1','🔍','בלש הצורות')}${tile('g3','🏗️','בונים צורה')}${tile('g2','📏','מודדים עם סרגל')}${tile('g7','🔲','מודדים היקף')}${tile('g8','📊','דיאגרמה')}${tile('g4','🪞','מראה קסומה')}</div>
    <div class="q" style="font-size:24px;margin-top:22px">📐 זוויות ומדידת זמן</div><div class="map">${tile('g9','📍','מהי זווית?')}${tile('g10','⚖️','השוואת זוויות')}${tile('g6','📐','ציידי הזוויות')}${tile('g11','🔷','זוויות בצורות')}${tile('g12','🕒','שעון')}${tile('g13','🕵️','תעלומת הצורה')}</div>
+   <div class="q" style="font-size:24px;margin-top:22px">🧮 שבילים 10</div><div class="map">${tile('g14','🧮','סדר פעולות')}${tile('g15','➗','חילוק עם שארית')}${tile('g16','🔺','משולשים')}${tile('g17','⏱️','כמה זמן עבר?')}</div>
    <div class="center" style="margin-top:14px;font-size:18px"><b>איך עולים רמה?</b><br>בכל משחק יש 3 רמות: 🌱 ← 🌿 ← 🌳. רמה חדשה נפתחת רק אחרי שמסיימים סיבוב עם לפחות 80% תשובות נכונות בניסיון הראשון (למשל 5 מתוך 6). 🔒 אומר שהרמה עוד נעולה. תרגול משפר, ושיפור מעלה רמה!</div>`;
   Object.keys(GAMEFN).forEach(g=>{document.getElementById(g).onclick=()=>play(g)});
   main.insertAdjacentHTML('beforeend',`<div class="q" style="font-size:22px;margin-top:22px">📚 שיעורים</div><div class="center">${Object.keys(EXPLAIN).map(g=>`<button class="big" data-ls="${g}" style="background:var(--blue);margin:4px;font-size:18px;padding:10px 16px">${EXPLAIN[g].t}</button>`).join('')}</div>
@@ -305,14 +332,14 @@ function detective(){
       endScreen('🏆',`כל הכבוד! ${got} מתוך ${TOTAL} בניסיון הראשון!`,'g1',got,TOTAL,'את בלשית צורות מעולה!');return;
     }
     const LV=lvl('g1'),PL=LV===1?SHAPES.filter(s=>['circle','triangle','square','rect'].includes(s.id)):SHAPES,bySides=Math.random()<(LV===1?0:LV===2?.4:.6);
-    let target,pool;
-    if(bySides){
+    let target,pool,tr1=0;
+    do{if(bySides){
       target=shuffle(SHAPES.filter(s=>s.sides>0))[0];
       pool=SHAPES.filter(s=>s.sides!==target.sides);
     }else{
       target=shuffle(PL)[0];
       pool=PL.filter(s=>s.id!==target.id);
-    }
+    }}while(!isFresh('g1',(bySides?'s':'n')+target.id+LV,10)&&++tr1<20);
     const opts=shuffle([target,...shuffle(pool).slice(0,4)]);
     const cols=shuffle(COLORS);
     const text=bySides?`מצאי את הצורה שיש לה ${target.sides} צלעות`:`מצאי את ה${target.he}`;
@@ -360,7 +387,7 @@ function rulerGame(){
     if(n>=TOTAL){
       endScreen('📏',`מדהים! ${got} מתוך ${TOTAL} מדידות נכונות בניסיון הראשון!`,'g2',got,TOTAL,'את מודדת מעולה!');return;
     }
-    const LV=lvl('g2'),L=LV===1?rint(3,8):LV===2?rint(3,11):rint(3,11)+.5,x0=90+Math.floor(Math.random()*160),y0=90;
+    const LV=lvl('g2'),L=(()=>{let v,t=0;do{v=LV===1?rint(3,8):LV===2?rint(3,11):rint(3,11)+.5}while(!isFresh('g2','L'+v,6)&&++t<20);return v})(),x0=90+Math.floor(Math.random()*160),y0=90;
     const w=L*U,body=w-30,col=shuffle(COLORS)[0];
     const obj=`<rect x="${x0}" y="${y0}" width="22" height="40" fill="#ff9ec6" stroke="#23305a" stroke-width="2.5"/>
       <rect x="${x0+22}" y="${y0}" width="${body-22}" height="40" fill="${col}" stroke="#23305a" stroke-width="2.5"/>
@@ -404,14 +431,15 @@ function rulerGame(){
 
 // ---------- game 3: build a shape on a peg board ----------
 function buildGame(){
+  const RA=rint(3,6),RB=rint(2,RA-1),RS=rint(2,4);
   const TASKS=[
     {t:'בני משולש',n:3,k:'tri',fact:'למשולש יש 3 צלעות ו-3 פינות'},
     {t:'בני משולש עם זווית ישרה',n:3,k:'rtri',fact:'זווית ישרה היא פינה כמו של דף נייר'},
     {t:'בני ריבוע',n:4,k:'sq',fact:'בריבוע כל 4 הצלעות שוות וכל 4 הזוויות ישרות'},
     {t:'בני מלבן (שאינו ריבוע)',n:4,k:'rect',fact:'במלבן 4 זוויות ישרות, והצלעות שממול שוות'},
     {t:'בני מחומש',n:5,k:'pent',fact:'למחומש יש 5 צלעות'},
-    {t:'בני מלבן: אורך 4 יחידות ורוחב 2 יחידות',n:4,k:'rect',dims:[4,2],fact:'מלבן 4 על 2'},
-    {t:'בני ריבוע שאורך כל צלע שלו 3 יחידות',n:4,k:'sq',side:3,fact:'ריבוע עם צלע 3'}
+    {t:`בני מלבן: אורך ${RA} יחידות ורוחב ${RB} יחידות`,n:4,k:'rect',dims:[RA,RB],fact:`מלבן ${RA} על ${RB}`},
+    {t:`בני ריבוע שאורך כל צלע שלו ${RS} יחידות`,n:4,k:'sq',side:RS,fact:`ריבוע עם צלע ${RS}`}
   ];
   const S=60,OX=30,OY=30,GX=9,GY=7; // grid: 10 x 8 points
   const LV=lvl('g3'),tasks=shuffle(LV===1?[0,1,2,3]:LV===2?[0,1,2,3,4,6]:[0,1,2,3,4,5,6]).map(i=>TASKS[i]),TOTAL=tasks.length;
@@ -583,7 +611,7 @@ function endScreen(emoji,text,g,got,total,sayTxt){
   else if(got>=need)msg='🏅 הגעת לרמה הגבוהה ביותר בנושא הזה!';
   else msg=`חסרות עוד ${need-got} תשובות נכונות בניסיון הראשון כדי לעלות רמה. נסי שוב: תרגול משפר, ושיפור מעלה רמה 💪`;
   main.innerHTML=`<div class="center"><div style="font-size:90px">${emoji}</div><div class="q">${text}</div><div style="font-size:28px;margin:6px 0">${'✅'.repeat(got)}${'⬜'.repeat(Math.max(0,total-got))}</div><div class="fb">${msg}</div><button class="big" id="again">שוב!</button></div>`;
-  document.getElementById('again').onclick=()=>play(g);sndYay();setTimeout(charSound,700);say(sayTxt);bounce();
+  document.getElementById('again').onclick=()=>play(g);sndYay();say(sayTxt);bounce();
 }
 function levelBar(t){
   if(!curGame)return '';
@@ -602,7 +630,7 @@ function angleGame(){
   const pol=(cx,cy,r,a)=>{const t=a*Math.PI/180;return[(cx+r*Math.cos(t)).toFixed(1),(cy+r*Math.sin(t)).toFixed(1)]};
   function round(){
     if(n>=TOTAL){endScreen('📐',`ציידת זוויות מעולה! ${got} מתוך ${TOTAL} בניסיון הראשון!`,'g6',got,TOTAL,'את מומחית לזוויות!');return}
-    const kind=plan[n],deg=shuffle(POOL[kind])[0],rot=rint(0,359),cx=300,cy=190,R=150;
+    const kind=plan[n],deg=(()=>{let d,t=0;do{d=shuffle(POOL[kind])[0]}while(!isFresh('g6',kind+d,6)&&++t<10);return d})(),rot=rint(0,359),cx=300,cy=190,R=150;
     const p1=pol(cx,cy,R,rot),p2=pol(cx,cy,R,rot+deg),a1=pol(cx,cy,44,rot),a2=pol(cx,cy,44,rot+deg);
     main.innerHTML=`${dotsHtml(n,TOTAL)}
       <div class="q">איזו זווית זאת? השתמשי בגוניה 📐</div>
@@ -669,7 +697,7 @@ function perimGame(){
   const TOTAL=6,S=44;let n=0,got=0;
   function round(){
     if(n>=TOTAL){endScreen('🔲',`מדדת היקף מעולה! ${got} מתוך ${TOTAL} בניסיון הראשון!`,'g7',got,TOTAL,'את מומחית להיקף!');return}
-    const sp=perimSpec(n);let body,vb,marks='',countHtml='';
+    let sp,tr7=0;do{sp=perimSpec(n)}while(!isFresh('g7',JSON.stringify([sp.pts,sp.labels,sp.q]),30)&&++tr7<25);let body,vb,marks='',countHtml='';
     if(sp.grid){
       const mx=Math.max(...sp.pts.map(p=>p[0])),my=Math.max(...sp.pts.map(p=>p[1])),O=30;
       vb=`0 0 ${mx*S+2*O} ${my*S+2*O}`;
@@ -731,7 +759,11 @@ function chartGame(){
     {t:'איזה פרי אהוב על ילדי הכיתה?',c:[['🍌','בננה'],['🍎','תפוח'],['🍇','ענבים'],['🍓','תות']]},
     {t:'איזו חיית מחמד הכי אהובה?',c:[['🐶','כלב'],['🐱','חתול'],['🐰','ארנב'],['🐹','אוגר']]},
     {t:'איזה ספורט ילדי הכיתה אוהבים?',c:[['⚽','כדורגל'],['🏀','כדורסל'],['🏊','שחייה'],['🥋','קראטה']]},
-    {t:'איזה טעם גלידה הכי טעים?',c:[['🍫','שוקולד'],['🍓','תות'],['🍦','וניל'],['🍋','לימון']]}
+    {t:'איזה טעם גלידה הכי טעים?',c:[['🍫','שוקולד'],['🍓','תות'],['🍦','וניל'],['🍋','לימון']]},
+    {t:'איזה צבע הכי אהוב?',c:[['🔴','אדום'],['🔵','כחול'],['🟢','ירוק'],['🟡','צהוב']]},
+    {t:'איזו חיה הכי אוהבים בגן החיות?',c:[['🦁','אריה'],['🐘','פיל'],['🐒','קוף'],['🐍','נחש']]},
+    {t:'מה אוכלים בהפסקה?',c:[['🍌','בננה'],['🥪','כריך'],['🧃','מיץ'],['🍪','עוגייה']]},
+    {t:'עם מה משחקים בחצר?',c:[['⚽','כדור'],['🪁','עפיפון'],['🚲','אופניים'],['🛴','קורקינט']]}
   ];
   const plan=lvl('g8')===1?['read','read','max','sum','build','build']:['read','max','diff','sum','build','build'],COL=['#ff7eb6','#ffb347','#5fd68a','#6fb4ff'];
   const LV=lvl('g8'),ST=LV===3?2:1,base=290,U=26/ST,bw=70,gap=130,x0=110;
@@ -746,7 +778,7 @@ function chartGame(){
   }
   function round(){
     if(n>=TOTAL){endScreen('📊',`קוראת דיאגרמות מעולה! ${got} מתוך ${TOTAL} בניסיון הראשון!`,'g8',got,TOTAL,'את מומחית לדיאגרמות!');return}
-    const set=shuffle(SETS)[0],vals=shuffle(ST===2?[2,4,6,8,10,12,14,16,18]:LV===1?[1,2,3,4,5,6]:[2,3,4,5,6,7,8,9]).slice(0,4),kind=plan[n];
+    const set=freshPick('g8',SETS,x=>x.t,5),vals=shuffle(ST===2?[2,4,6,8,10,12,14,16,18]:LV===1?[1,2,3,4,5,6]:[2,3,4,5,6,7,8,9]).slice(0,4),kind=plan[n];
     const nm=i=>`${set.c[i][0]} ${set.c[i][1]}`;
     const labels=set.c.map((c,i)=>`<text x="${bx(i)}" y="${base+34}" font-size="30" text-anchor="middle">${c[0]}</text><text x="${bx(i)}" y="${base+56}" font-size="16" font-weight="700" text-anchor="middle" fill="#23305a">${c[1]}</text>`).join('');
     let q,ans,opts,mode='num';
@@ -868,7 +900,7 @@ function spotAngleGame(){
       opts=[0,1,2].map(i=>({h:`<svg viewBox="0 0 220 200" style="width:100%;height:100%">${figure(110,175,i===ci,rint(40,100),rint(-30,30),110)}</svg>`,v:i,card:true}));
       correct=ci;okMsg='נכון! זווית נוצרת רק כששתי הקרניים יוצאות מאותו קודקוד ⭐';
     }else{
-      const k=rint(3,6),pts=Array.from({length:k},(_,i)=>{const a=-Math.PI/2+i*2*Math.PI/k;return[(200+90*Math.cos(a)).toFixed(1),(110+90*Math.sin(a)).toFixed(1)]});
+      const k=(()=>{let v,t=0;do{v=rint(3,6)}while(!isFresh('g9','k'+v,2)&&++t<10);return v})(),pts=Array.from({length:k},(_,i)=>{const a=-Math.PI/2+i*2*Math.PI/k;return[(200+90*Math.cos(a)).toFixed(1),(110+90*Math.sin(a)).toFixed(1)]});
       q='כמה זוויות יש בצורה?';
       visual=`<svg viewBox="0 0 400 220" style="width:100%;max-width:420px;display:block;margin:0 auto;background:#fff;border-radius:22px;box-shadow:0 5px 0 #0002"><polygon points="${pts.map(p=>p.join(',')).join(' ')}" fill="rgba(111,180,255,.4)" stroke="#23305a" stroke-width="5" stroke-linejoin="round"/>${pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="7" fill="#e63946"/>`).join('')}</svg>`;
       opts=numOpts(k).map(v=>({h:String(v),v}));correct=k;okMsg=`נכון! בכל קודקוד יש זווית, ולצורה הזאת יש ${k} קודקודים ⭐`;
@@ -959,7 +991,7 @@ function polyAngleGame(){
   const TOTAL=6,LV=lvl('g11'),TY=[['right','ישרות','ישרה'],['acute','חדות','חדה'],['obtuse','קהות','קהה']];let n=0,got=0;
   function round(){
     if(n>=TOTAL){endScreen('🔷',`זוויות בצורות: ${got} מתוך ${TOTAL} בניסיון הראשון!`,'g11',got,TOTAL,'את מומחית לזוויות בצורות!');return}
-    const s=shuffle(POLYS)[0],P=polyProps(s),t=LV===1?TY[0]:shuffle(TY)[0],c=P[t[0]];
+    const s=freshPick('g11',POLYS,x=>x.n,6),P=polyProps(s),t=LV===1?TY[0]:shuffle(TY)[0],c=P[t[0]];
     let q,opts,correct,kind='count',claim;
     if(LV<3){q=`כמה זוויות ${t[1]} יש בצורה?`;opts=smallOpts(c).map(v=>({h:String(v),v}));correct=c}
     else{
@@ -1002,7 +1034,7 @@ function clockGame(){
   }
   function round(){
     if(n>=TOTAL){endScreen('🕒',`שעון: ${got} מתוך ${TOTAL} בניסיון הראשון!`,'g12',got,TOTAL,'את קוראת שעון מעולה!');return}
-    const mode=n%2===0?'read':'set',m=shuffle(MINS)[0],h=mode==='set'?rint(1,11):rint(1,12);
+    const mode=n%2===0?'read':'set';let m,h,tr12=0;do{m=shuffle(MINS)[0];h=mode==='set'?rint(1,11):rint(1,12)}while(!isFresh('g12',h+':'+m,40)&&++tr12<30);
     const ha=(h%12)*30+m*.5,ma=m*6,ph=phrase(h,m);
     const svgOpen=`<svg id="ck" viewBox="0 0 300 300" style="width:100%;max-width:min(360px,46vh);display:block;margin:0 auto;background:#fff;border-radius:22px;box-shadow:0 5px 0 #0002;touch-action:none">`;
     if(mode==='read'){
@@ -1080,7 +1112,7 @@ function mysteryGame(){
   }
   function round(){
     if(n>=TOTAL){endScreen('🕵️',`פתרת ${got} תעלומות מתוך ${TOTAL} בניסיון הראשון!`,'g13',got,TOTAL,'את בלשית מעולה!');return}
-    const r=build();if(!r){n++;round();return}
+    let r,tr13=0;do{r=build()}while(r&&!isFresh('g13',r.target.n,6)&&++tr13<20);if(!r){n++;round();return}
     const {pool,target,clues}=r;let shown=LV===1?clues.length:Math.min(2,clues.length);
     main.innerHTML=`${dotsHtml(n,TOTAL)}<div class="q">איזו צורה מסתתרת? קראי את הרמזים</div><div id="cl" class="center" style="font-size:22px;font-weight:700"></div>
       <div class="center" id="nx" style="margin:8px 0"></div>
@@ -1107,8 +1139,248 @@ function mysteryGame(){
   say('בואי נפתור תעלומה!');round();
 }
 
+// ---------- Shvilim 10 helpers ----------
+const opts5=(a,step=5)=>{const s=new Set([a]);let g=0;while(s.size<4&&g++<100){const v=a+rint(-3,3)*step;if(v>0)s.add(v)}return shuffle([...s])};
+const fmtT=(h,m)=>`${h}:${String(m).padStart(2,'0')}`;
+function miniClock(h,m){
+  let t='<circle cx="150" cy="150" r="136" fill="#fff" stroke="#23305a" stroke-width="6"/>';
+  for(let k=0;k<60;k++){const a=k*6*Math.PI/180,r1=k%5?122:114;t+=`<line x1="${(150+r1*Math.sin(a)).toFixed(1)}" y1="${(150-r1*Math.cos(a)).toFixed(1)}" x2="${(150+130*Math.sin(a)).toFixed(1)}" y2="${(150-130*Math.cos(a)).toFixed(1)}" stroke="#23305a" stroke-width="${k%5?1.5:3.5}"/>`}
+  for(let k=1;k<=12;k++){const a=k*30*Math.PI/180;t+=`<text x="${(150+96*Math.sin(a)).toFixed(1)}" y="${(150-96*Math.cos(a)+9).toFixed(1)}" font-size="26" font-weight="800" text-anchor="middle" fill="#23305a">${k}</text>`}
+  const ha=(h%12)*30+m*.5,ma=m*6,hand=(a,len,w,col)=>`<line x1="150" y1="150" x2="${(150+len*Math.sin(a*Math.PI/180)).toFixed(1)}" y2="${(150-len*Math.cos(a*Math.PI/180)).toFixed(1)}" stroke="${col}" stroke-width="${w}" stroke-linecap="round"/>`;
+  return `<svg viewBox="0 0 300 300" style="width:100%;height:100%">${t}${hand(ha,62,9,'#23305a')}${hand(ma,105,5,'#e63946')}<circle cx="150" cy="150" r="9" fill="#23305a"/></svg>`;
+}
+const radio=(rows,onChange)=>{ // rows of option buttons where one option per row can be picked
+  const sel={};
+  main.querySelectorAll('[data-row]').forEach(b=>b.onclick=()=>{
+    main.querySelectorAll(`[data-row="${b.dataset.row}"]`).forEach(x=>x.style.outline='');
+    b.style.outline='5px solid var(--pink)';sel[b.dataset.row]=+b.dataset.v;onChange&&onChange(sel);
+  });
+  return sel;
+};
+const rowHtml=(id,label,opts)=>`<div class="center" style="margin-top:8px"><div style="font-weight:800;font-size:20px">${label}</div>${opts.map(o=>`<button class="big" data-row="${id}" data-v="${o}" style="background:var(--blue);margin:4px;min-width:72px">${o}</button>`).join('')}</div>`;
+
+// ---------- game 14: order of operations ----------
+function orderOpsGame(){
+  const TOTAL=4,LV=lvl('g14');let n=0,got=0;
+  const a9=()=>rint(2,9),OPS=['+','−','×','÷'];
+  function gen(){
+    const k=rint(0,3),a=a9(),b=a9(),c=a9();
+    if(LV===1)return [[a,'+',b,'×',c],[b,'×',c,'+',a],[b*c+a,'−',b,'×',c],[a*b,'÷',b,'+',c]][k];
+    if(LV===2)return [['(',a,'+',b,')','×',c],[a+b+c+rint(1,5),'−','(',b,'+',c,')'],['(',a+b+c,'−',b,')','×',rint(2,5)],[a,'×','(',b,'+',c,')']][k];
+    if(k===0)return [a,'+',b,'×',c,'−',rint(1,a+b*c-1)];
+    if(k===1)return ['(',a,'+',b,')','×','(',c+4,'−',4,')'];
+    if(k===2)return [(a+b)*rint(2,6),'÷','(',a,'+',b,')','+',rint(2,9)];
+    let x,y,z,w;do{x=a9();y=a9();z=rint(2,5);w=rint(2,5)}while(x*y<=z*w);return [x,'×',y,'−',z,'×',w];
+  }
+  const calc=(x,op,y)=>op==='+'?x+y:op==='−'?x-y:op==='×'?x*y:x/y;
+  function allowed(arr){
+    const groups=[];
+    arr.forEach((t,i)=>{if(t==='(')groups.push([i+1,arr.indexOf(')',i)-1])});
+    if(!groups.length)groups.push([0,arr.length-1]);
+    const res=[];
+    groups.forEach(([lo,hi])=>{
+      let idx=-1;
+      for(let i=lo;i<=hi;i++)if(arr[i]==='×'||arr[i]==='÷'){idx=i;break}
+      if(idx<0)for(let i=lo;i<=hi;i++)if(arr[i]==='+'||arr[i]==='−'){idx=i;break}
+      if(idx>=0)res.push(idx);
+    });
+    return res;
+  }
+  function round(){
+    if(n>=TOTAL){endScreen('🧮',`סדר פעולות: ${got} מתוך ${TOTAL} בניסיון הראשון!`,'g14',got,TOTAL,'את מומחית לסדר פעולות!');return}
+    let arr,tr14=0;do{arr=gen()}while(!isFresh('g14',arr.join(' '),40)&&++tr14<30);let miss=false;const trace=[arr.join(' ')];
+    function show(phase,idx){
+      const toks=arr.map((t,i)=>{
+        if(OPS.includes(t))return phase==='pick'?`<button class="opb" data-i="${i}">${t}</button>`:`<span class="tok${i===idx?' hl':''}">${t}</span>`;
+        return `<span class="tok${phase==='calc'&&(i===idx-1||i===idx+1)?' hl':''}">${t}</span>`;
+      }).join('');
+      const res=phase==='calc'?calc(arr[idx-1],arr[idx],arr[idx+1]):0;
+      main.innerHTML=`${dotsHtml(n,TOTAL)}<div class="q">${phase==='pick'?'לחצי על הפעולה שפותרים ראשונה':`כמה זה ${arr[idx-1]} ${arr[idx]} ${arr[idx+1]}?`}</div>
+        ${LV<3?'<div class="center" style="font-size:18px;margin:4px 0">סדר הפעולות: 1️⃣ סוגריים 2️⃣ כפל וחילוק 3️⃣ חיבור וחיסור</div>':''}
+        <div dir="ltr" class="center" style="background:#fff;border-radius:22px;padding:18px 8px;box-shadow:0 5px 0 #0002;margin:8px auto;max-width:620px">${toks}</div>
+        ${phase==='calc'?`<div class="center">${numOpts(res).map(v=>`<button class="big" data-r="${v}" style="background:var(--blue);margin:4px;min-width:84px">${v}</button>`).join('')}</div>`:''}
+        <div class="fb" id="fb"></div>`;
+      const fb=document.getElementById('fb');
+      if(phase==='pick'){
+        const ok=allowed(arr);
+        main.querySelectorAll('.opb').forEach(b=>b.onclick=()=>{
+          if(ok.includes(+b.dataset.i))show('calc',+b.dataset.i);
+          else{miss=true;sndOops();fb.textContent='עוד לא! קודם פותרים סוגריים, אחר כך כפל וחילוק, ואחר כך חיבור וחיסור 💪';say('נסי עוד פעם! שיפור יעלה אותך רמה 🌱')}
+        });
+      }else{
+        main.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{
+          if(+b.dataset.r!==res){miss=true;sndOops();fb.textContent='כמעט! חשבי שוב את התרגיל הקטן 💪';say('נסי עוד פעם! שיפור יעלה אותך רמה 🌱');return}
+          sndYay();
+          arr.splice(idx-1,3,res);
+          for(let i=0;i<arr.length;i++)if(arr[i]==='('&&arr[i+2]===')')arr.splice(i,3,arr[i+1]);
+          trace.push(arr.join(' '));
+          if(arr.length===1){
+            if(!miss){got++;addStar()}bounce();
+            main.innerHTML=`${dotsHtml(n,TOTAL)}<div class="q">התשובה: ${arr[0]}</div><div dir="ltr" class="center" style="font-size:26px;font-weight:700;line-height:1.8">${trace.join('<br>= ')}</div><div class="fb">${miss?'מצוין, הגעת לתשובה!':'בלי טעויות ⭐'}</div>`;
+            say(who==='elephant'?'יששש!':'בננה!');n++;setTimeout(round,3800);
+          }else show('pick');
+        });
+      }
+    }
+    show('pick');
+  }
+  say('בואי נפתור לפי הסדר!');round();
+}
+
+// ---------- game 15: division with remainder ----------
+function divRemGame(){
+  const TOTAL=5,LV=lvl('g15'),EM=['🍪','🍎','⚽','🌟','🍓','🐟'];let n=0,got=0;
+  const THEMES=[['ילדים','אוטובוסים','אוטובוס'],['עוגיות','קופסאות','קופסה'],['כדורים','שקיות','שקית']];
+  const rem=(k,r)=>shuffle([r,...shuffle([...Array(k+1).keys()].filter(x=>x!==r)).slice(0,3)]);
+  function round(){
+    if(n>=TOTAL){endScreen('➗',`חילוק עם שארית: ${got} מתוך ${TOTAL} בניסיון הראשון!`,'g15',got,TOTAL,'את מומחית לשארית!');return}
+    let k,N,theme=shuffle(THEMES)[0],kind='qr',tr15=0;do{kind='qr';
+    if(LV===1){k=rint(2,5);N=Math.random()<.2?k*rint(2,4):rint(k+3,19)}
+    else if(LV===2){k=rint(3,9);N=rint(2*k+1,60)}
+    else{k=rint(4,9);N=rint(3*k+1,70);kind=Math.random()<.5?'qr':'total'}}while(!isFresh('g15',LV+':'+N+'/'+k+kind,40)&&++tr15<30);
+    const q=Math.floor(N/k),r=N%k,em=shuffle(EM)[0];
+    let top='',q1,rows,okMsg;
+    if(LV===1){q1=`מחלקים ${N} ${em} לקבוצות של ${k}`;top=`<div id="pile" class="center" style="font-size:30px;line-height:1.4;margin:6px 0"></div><div id="boxes" class="center"></div><div class="center"><button class="big" id="pack" style="background:var(--blue)">📦 ארזי קבוצה של ${k}</button></div><div id="after"></div>`}
+    else if(LV===2){q1='חלקי עם שארית';top=`<div dir="ltr" class="center" style="font-size:44px;font-weight:800;margin:8px">${N} ÷ ${k}</div><div dir="ltr" class="center" style="font-size:20px">${Array.from({length:Math.min(q+2,10)},(_,i)=>`<span style="background:#fff;border-radius:12px;padding:3px 10px;margin:3px;display:inline-block">${k} × ${i+1} = ${k*(i+1)}</span>`).join('')}</div><div id="after">${rowHtml('q','כמה קבוצות מלאות? (המנה)',numOpts(q))}${rowHtml('r','כמה נשאר? (השארית)',rem(k,r))}</div>`}
+    else if(kind==='qr'){q1=`יש ${N} ${theme[0]}. מחלקים אותם ל${theme[1]} של ${k}. כמה ${theme[1]} מלאים יהיו, וכמה ${theme[0]} יישארו?`;top=`<div id="after">${rowHtml('q',`כמה ${theme[1]} מלאים?`,numOpts(q))}${rowHtml('r',`כמה ${theme[0]} נשארו?`,rem(k,r))}</div>`}
+    else{q1=`יש ${N} ${theme[0]}. בכל ${theme[2]} נכנסים ${k}. כמה ${theme[1]} צריך כדי להכניס את כולם?`;top=`<div id="after">${rowHtml('t',`כמה ${theme[1]} צריך?`,numOpts(q+(r?1:0)))}</div>`}
+    okMsg=kind==='total'&&LV===3?`${N} ÷ ${k} = ${q} ושארית ${r}. ${r?'מה שנשאר צריך עוד אחד, ולכן צריך '+(q+1):'אין שארית'} ⭐`:`${N} ÷ ${k} = ${q}${r?` ושארית ${r}`:' בלי שארית'}. בדיקה: ${k} × ${q}${r?` + ${r}`:''} = ${N} ⭐`;
+    main.innerHTML=`${dotsHtml(n,TOTAL)}<div class="q">${q1}</div>${top}<div class="center" id="chkw" style="margin-top:10px;display:${LV===1?'none':'block'}"><button class="big" id="chk" style="background:var(--green)">בדקי ✅</button></div><div class="fb" id="fb"></div>`;
+    let first=true,locked=false,sel={};
+    const fb=document.getElementById('fb');
+    function bind(){sel=radio();}
+    if(LV===1){
+      let pile=N,boxes=0;
+      const draw=()=>{
+        document.getElementById('pile').textContent=em.repeat(pile)||'—';
+        document.getElementById('boxes').innerHTML=Array.from({length:boxes},()=>`<span style="display:inline-block;background:#fff;border:3px solid var(--ink);border-radius:14px;padding:2px 8px;margin:4px;font-size:22px">${em.repeat(k)}</span>`).join('');
+        const pb=document.getElementById('pack');pb.disabled=pile<k;
+        if(pile<k&&!document.getElementById('after').innerHTML){
+          document.getElementById('after').innerHTML=`<div class="center" style="font-size:19px;margin:6px 0">אי אפשר לארוז עוד: נשארו פחות מ-${k}.</div>${rowHtml('q','כמה קבוצות ארזת?',numOpts(q))}${rowHtml('r','כמה נשארו בחוץ?',rem(k,r))}`;
+          document.getElementById('chkw').style.display='block';bind();
+        }
+      };
+      document.getElementById('pack').onclick=()=>{if(pile>=k){pile-=k;boxes++;draw()}};
+      draw();
+    }else bind();
+    document.getElementById('chk').onclick=()=>{
+      if(locked)return;
+      const needRows=kind==='total'&&LV===3?['t']:['q','r'];
+      if(needRows.some(x=>sel[x]===undefined)){fb.textContent='בחרי תשובה בכל שורה 🙂';return}
+      const ok=kind==='total'&&LV===3?sel.t===q+(r?1:0):(sel.q===q&&sel.r===r);
+      if(ok){locked=true;if(first){got++;addStar()}sndYay();bounce();fb.textContent=okMsg;say(who==='elephant'?'יששש!':'בננה!');n++;setTimeout(round,4200)}
+      else{first=false;sndOops();fb.textContent=kind==='total'&&LV===3?'נסי שוב! אם נשארו פריטים, צריך עוד קבוצה בשבילם 💪':'נסי שוב! השארית תמיד קטנה מהמחלק. בדיקה: מחלק × מנה + שארית = המספר 💪';say('נסי עוד פעם! שיפור יעלה אותך רמה 🌱')}
+    };
+  }
+  say('בואי נחלק עם שארית!');round();
+}
+
+// ---------- game 16: triangles ----------
+const TRI_CATALOG=[
+  {t:[4,4,4],s:'eq',g:'acute'},{t:[5,5,5],s:'eq',g:'acute'},{t:[6,6,6],s:'eq',g:'acute'},
+  {t:[5,5,6],s:'iso',g:'acute'},{t:[6,6,5],s:'iso',g:'acute'},{t:[5,5,4],s:'iso',g:'acute'},
+  {t:[5,5,8],s:'iso',g:'obtuse'},{t:[4,4,7],s:'iso',g:'obtuse'},{t:[6,6,10],s:'iso',g:'obtuse'},
+  {t:[4,5,6],s:'sc',g:'acute'},{t:[5,6,7],s:'sc',g:'acute'},{t:[6,7,8],s:'sc',g:'acute'},
+  {t:[3,4,5],s:'sc',g:'right'},{t:[6,8,10],s:'sc',g:'right'},{t:[5,12,13],s:'sc',g:'right'},
+  {t:[4,6,9],s:'sc',g:'obtuse'},{t:[5,6,10],s:'sc',g:'obtuse'},{t:[3,5,7],s:'sc',g:'obtuse'}
+];
+const TRI_S={eq:'שווה צלעות',iso:'שווה שוקיים',sc:'שונה צלעות'},TRI_G={acute:'חד זווית',right:'ישר זווית',obtuse:'קהה זווית'};
+function triPts(a,b,c){
+  const x=(b*b+c*c-a*a)/(2*c),y=Math.sqrt(Math.max(0,b*b-x*x)),xs=[0,c,x],mn=Math.min(...xs),mx=Math.max(...xs),w=mx-mn;
+  const s=Math.min(240/w,140/y),ox=(300-w*s)/2-mn*s;
+  return [[ox,185],[ox+c*s,185],[ox+x*s,185-y*s]];
+}
+function triSvg(t,col,labels,angles,tag){
+  const [a,b,c]=t,P=triPts(a,b,c),cx=(P[0][0]+P[1][0]+P[2][0])/3,cy=(P[0][1]+P[1][1]+P[2][1])/3;
+  let g=`<polygon points="${P.map(p=>p.map(v=>v.toFixed(1)).join(',')).join(' ')}" fill="${col}" stroke="#23305a" stroke-width="5" stroke-linejoin="round"/>`;
+  if(labels)[[P[0],P[1],c],[P[0],P[2],b],[P[1],P[2],a]].forEach(([p,q,len])=>{
+    const mx=(p[0]+q[0])/2,my=(p[1]+q[1])/2,dx=mx-cx,dy=my-cy,l=Math.hypot(dx,dy)||1;
+    g+=`<text x="${(mx+dx/l*20).toFixed(1)}" y="${(my+dy/l*20+7).toFixed(1)}" font-size="22" font-weight="800" text-anchor="middle" fill="#e63946">${len}</text>`;
+  });
+  if(angles){
+    const A=Math.acos((b*b+c*c-a*a)/(2*b*c)),B=Math.acos((a*a+c*c-b*b)/(2*a*c)),C=Math.PI-A-B;
+    [A,B,C].forEach((ang,i)=>{const p=P[i];g+=`<text x="${(p[0]+(cx-p[0])*.36).toFixed(1)}" y="${(p[1]+(cy-p[1])*.36+6).toFixed(1)}" font-size="17" font-weight="800" text-anchor="middle" fill="#1b4fb5">${Math.round(ang*180/Math.PI)}°</text>`});
+  }
+  if(tag)g+=`<text x="14" y="30" font-size="26" font-weight="800" fill="#23305a">${tag}</text>`;
+  return `<svg viewBox="0 0 300 200" style="width:100%;height:100%">${g}</svg>`;
+}
+function trianglesGame(){
+  const TOTAL=5,LV=lvl('g16'),COL=['#ff9ec6','#ffd27f','#9be3b3','#9cc9ff'],LET=['א','ב','ג','ד'];let n=0,got=0;
+  function round(){
+    if(n>=TOTAL){endScreen('🔺',`משולשים: ${got} מתוך ${TOTAL} בניסיון הראשון!`,'g16',got,TOTAL,'את מומחית למשולשים!');return}
+    const it=freshPick('g16',TRI_CATALOG,x=>x.t.join(),10),t=shuffle(it.t);
+    let q,visual,opts,correct,okMsg;
+    if(LV===1){
+      q='איזה משולש זה? (לפי אורכי הצלעות)';
+      visual=`<div style="max-width:380px;margin:0 auto;background:#fff;border-radius:22px;box-shadow:0 5px 0 #0002;aspect-ratio:3/2">${triSvg(t,COL[0],true,false,'')}</div><div class="center" style="margin-top:4px;font-size:16px">אורכי הצלעות בסנטימטרים</div>`;
+      opts=['eq','iso','sc'].map(v=>({h:TRI_S[v],v}));correct=it.s;
+      okMsg=it.s==='eq'?'שלוש צלעות שוות: שווה צלעות ⭐':it.s==='iso'?'שתי צלעות שוות: שווה שוקיים ⭐':'כל הצלעות שונות: שונה צלעות ⭐';
+    }else if(LV===2){
+      q='איזה משולש זה? (לפי הזוויות)';
+      visual=`<div style="max-width:380px;margin:0 auto;background:#fff;border-radius:22px;box-shadow:0 5px 0 #0002;aspect-ratio:3/2">${triSvg(t,COL[1],false,true,'')}</div><div class="center" style="margin-top:4px;font-size:16px">הזוויות כתובות במעלות</div>`;
+      opts=['acute','right','obtuse'].map(v=>({h:TRI_G[v],v}));correct=it.g;
+      okMsg=it.g==='right'?'יש זווית ישרה (90°): ישר זווית ⭐':it.g==='obtuse'?'יש זווית גדולה מ-90°: קהה זווית ⭐':'כל הזוויות קטנות מ-90°: חד זווית ⭐';
+    }else{
+      const pool=shuffle(TRI_CATALOG.filter(x=>x.s!==it.s||x.g!==it.g)),picked=[],seen=new Set([it.s+it.g]);
+      pool.forEach(x=>{if(picked.length<3&&!seen.has(x.s+x.g)){seen.add(x.s+x.g);picked.push(x)}});
+      const list=shuffle([it,...picked]);
+      q=`איזה משולש הוא ${TRI_S[it.s]} ו${TRI_G[it.g]}?`;
+      visual='';opts=list.map((x,i)=>({h:triSvg(shuffle(x.t),COL[i],false,true,LET[i]),v:x===it,card:true}));correct=true;
+      okMsg=`נכון! ${TRI_S[it.s]} ו${TRI_G[it.g]} ⭐`;
+    }
+    main.innerHTML=`${dotsHtml(n,TOTAL)}<div class="q">${q}</div>${visual}
+      <div class="${opts[0].card?'cards':'center'}" style="margin-top:12px;${opts[0].card?'grid-template-columns:repeat(2,1fr)':''}">${opts.map((o,i)=>o.card?`<button class="card" data-i="${i}" style="aspect-ratio:3/2">${o.h}</button>`:`<button class="big" data-i="${i}" style="background:var(--blue);margin:4px">${o.h}</button>`).join('')}</div><div class="fb" id="fb"></div>`;
+    let first=true,locked=false;
+    main.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{
+      if(locked)return;const o=opts[+b.dataset.i],fb=document.getElementById('fb');
+      if(o.v===correct){locked=true;if(first){got++;addStar()}sndYay();bounce();b.classList.add('ok');fb.textContent=okMsg;say(who==='elephant'?'יששש!':'בננה!');n++;setTimeout(round,3200)}
+      else{first=false;sndOops();b.classList.add('no');setTimeout(()=>b.classList.remove('no'),450);fb.textContent=LV===1?'נסי שוב! ספרי כמה צלעות שוות 💪':LV===2?'נסי שוב! חפשי זווית ישרה או גדולה מ-90° 💪':'נסי שוב! בדקי גם את הצלעות וגם את הזוויות 💪';say('נסי עוד פעם! שיפור יעלה אותך רמה 🌱')}
+    });
+  }
+  say('בואי נכיר משולשים!');round();
+}
+
+// ---------- game 17: how much time passed ----------
+function timePassGame(){
+  const TOTAL=5,LV=lvl('g17');let n=0,got=0;
+  function round(){
+    if(n>=TOTAL){endScreen('⏱️',`כמה זמן עבר: ${got} מתוך ${TOTAL} בניסיון הראשון!`,'g17',got,TOTAL,'את מומחית לזמן!');return}
+    let q,clocks='',ans,opts,okMsg,txt=false;
+    const tm=m=>{const h=Math.floor(m/60)%12||12;return fmtT(h,m%60)};
+    if(LV===1){
+      const h=rint(1,12),m0=shuffle([0,15,30,45])[0],add=shuffle([15,30,45,60])[0],end=(h*60+m0+add);
+      q=`עכשיו השעה ${fmtT(h,m0)}. מה תהיה השעה בעוד ${add===60?'שעה':add+' דקות'}?`;
+      clocks=`<div style="max-width:240px;margin:0 auto;aspect-ratio:1">${miniClock(h,m0)}</div>`;
+      ans=tm(end);opts=shuffle([ans,tm(end+15),tm(end-15),tm(end+30)].filter((x,i,a)=>a.indexOf(x)===i)).slice(0,4);
+      if(!opts.includes(ans))opts[0]=ans;txt=true;
+      okMsg=`${fmtT(h,m0)} ועוד ${add===60?'שעה':add+' דקות'} זה ${ans}. כשעוברים 60 דקות עוברים לשעה הבאה ⭐`;
+    }else if(LV===2){
+      const h=rint(1,11),m0=rint(0,10)*5,d=rint(1,11)*5,end=h*60+m0+d;
+      q='כמה דקות עברו מהשעה הראשונה עד השעה השנייה?';
+      clocks=`<div style="display:flex;gap:10px;justify-content:center"><div style="width:42%;max-width:220px;aspect-ratio:1">${miniClock(h,m0)}</div><div style="font-size:40px;align-self:center">←</div><div style="width:42%;max-width:220px;aspect-ratio:1">${miniClock(Math.floor(end/60)%12||12,end%60)}</div></div>
+        <div dir="ltr" class="center" style="font-size:22px;font-weight:800">${fmtT(h,m0)} ← ${tm(end)}</div>`;
+      ans=d;opts=opts5(d);okMsg=`עברו ${d} דקות: סופרים קפיצות של 5 דקות מ-${fmtT(h,m0)} עד ${tm(end)} ⭐`;
+    }else{
+      const kind=rint(0,3);
+      if(kind===0){const k=rint(2,5);q=`כמה דקות הן ${k} שעות?`;ans=k*60;opts=opts5(ans,60);okMsg=`שעה היא 60 דקות, לכן ${k} × 60 = ${ans} ⭐`}
+      else if(kind===1){const k=rint(2,6);q=`כמה שניות הן ${k} דקות?`;ans=k*60;opts=opts5(ans,30);okMsg=`דקה היא 60 שניות, לכן ${k} × 60 = ${ans} ⭐`}
+      else if(kind===2){const h=rint(1,10),m0=shuffle([40,45,50,55])[0],d=rint(2,8)*5,end=h*60+m0+d;q=`סרט התחיל ב-${fmtT(h,m0)} ונגמר ב-${tm(end)}. כמה דקות הוא נמשך?`;ans=d;opts=opts5(d);okMsg=`עד ${tm(Math.ceil((h*60+m0)/60)*60)} עברו ${Math.ceil((h*60+m0)/60)*60-(h*60+m0)} דקות, ואחר כך עוד ${end-Math.ceil((h*60+m0)/60)*60} ⭐`}
+      else{const h=rint(1,9),m0=shuffle([0,15,30])[0],d=shuffle([75,90,105,120])[0],end=h*60+m0+d;q=`שיעור התחיל ב-${fmtT(h,m0)} ונגמר ב-${tm(end)}. כמה דקות הוא נמשך?`;ans=d;opts=opts5(d,15);okMsg=`שעה אחת היא 60 דקות, ועוד ${d-60}: ביחד ${d} דקות ⭐`}
+    }
+    main.innerHTML=`${dotsHtml(n,TOTAL)}<div class="q">${q}</div>${clocks}
+      <div class="center" style="margin-top:12px">${opts.map(o=>`<button class="big" data-v="${o}" style="background:var(--blue);margin:4px;min-width:96px;direction:ltr">${o}</button>`).join('')}</div><div class="fb" id="fb"></div>`;
+    let first=true,locked=false;
+    main.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{
+      if(locked)return;const fb=document.getElementById('fb');
+      if(String(b.dataset.v)===String(ans)){locked=true;if(first){got++;addStar()}sndYay();bounce();fb.textContent=okMsg;say(who==='elephant'?'יששש!':'בננה!');n++;setTimeout(round,4200)}
+      else{first=false;sndOops();fb.textContent='נסי שוב! אפשר לספור קפיצות של 5 דקות, ושעה אחת היא 60 דקות 💪';say('נסי עוד פעם! שיפור יעלה אותך רמה 🌱')}
+    });
+  }
+  say('בואי נמדוד זמן!');round();
+}
+
 // ---------- niqqud (vowel points) and accessibility ----------
-const NK={"אבל": "אֲבָל", "אדריכלית": "אַדְרִיכָלִית", "אהוב": "אָהוּב", "אהובה": "אֲהוּבָה", "או": "אוֹ", "אוגר": "אוֹגֵר", "אוהבים": "אוֹהֲבִים", "אופקית": "אוֹפְקִית", "אורך": "אֹרֶךְ", "אורכי": "אָרְכֵי", "אורכים": "אֲרָכִים", "אותה": "אוֹתָהּ", "אחד": "אֶחָד", "אחרת": "אַחֶרֶת", "אחת": "אַחַת", "איזה": "אֵיזֶה", "איזו": "אֵיזוֹ", "אין": "אֵין", "אם": "אִם", "אני": "אֲנִי", "אנכית": "אֲנָכִית", "ארנב": "אַרְנָב", "באורכן": "בְּאָרְכָּן", "באותו": "בְּאוֹתוֹ", "באחת": "בְּאַחַת", "באיזה": "בְּאֵיזֶה", "באמצע": "בָּאֶמְצַע", "בבית": "בְּבֵית", "בגוניה": "בַּגּוֹנְיָה", "בדיוק": "בְּדִיּוּק", "בדקי": "בִּדְקִי", "בואי": "בּוֹאִי", "בונה": "בּוֹנָה", "בונים": "בּוֹנִים", "בחרו": "בָּחֲרוּ", "בטירה": "בַּטִּירָה", "ביותר": "בְּיוֹתֵר", "בין": "בֵּין", "בית": "בַּיִת", "בכלל": "בִּכְלָל", "בכמה": "בְּכַמָּה", "בלה": "בְּלָה", "בלי": "בְּלִי", "בלש": "בַּלָּשׁ", "בלשית": "בַּלָּשִׁית", "במלבן": "בְּמַלְבֵּן", "במרחק": "בְּמֶרְחָק", "במרכז": "בַּמֶּרְכָּז", "במשושה": "בְּמֻשְׁשֶׁה", "בנאנה": "בָּנָאנָה", "בנושא": "בַּנֹּשֵׂא", "בני": "בְּנִי", "בניסיון": "בְּנִסָּיוֹן", "בנית": "בָּנִית", "בננה": "בָּנָנָה", "בסך": "בְּסַךְ", "בסקר": "בַּסֶּקֶר", "בעיקר": "בְּעִקָּר", "בצד": "בַּצַּד", "בקו": "בַּקַּו", "בקרוב": "בְּקָרוֹב", "בריבוע": "בְּרִבּוּעַ", "בשלבים": "בַּשְּׁלָבִים", "גבוהה": "גְּבוֹהָה", "גדולה": "גְּדוֹלָה", "גדולים": "גְּדוֹלִים", "גוניה": "גּוֹנְיָה", "גיאו": "גֵּיאוֹ", "גלידה": "גְּלִידָה", "גם": "גַּם", "גררי": "גָּרְרִי", "דבר": "דָּבָר", "דיאגרמה": "דִּיאָגְרָמָה", "דיאגרמות": "דִּיאָגְרָמוֹת", "דיאגרמת": "דִּיאָגְרַמַּת", "דמות": "דְּמוּת", "דף": "דַּף", "האדום": "הָאָדֹם", "הבבואה": "הַבְּבוּאָה", "הבינוני": "הַבֵּינוֹנִי", "הבנתי": "הֵבַנְתִּי", "הגבוהה": "הַגְּבוֹהָה", "הגוניה": "הַגּוֹנְיָה", "הגעת": "הִגַּעַתְּ", "הדיאגרמה": "הַדִּיאָגְרָמָה", "ההיקף": "הַהֶקֵּף", "הוא": "הוּא", "הזאת": "הַזֹּאת", "הזה": "הַזֶּה", "הזוויות": "הַזָּוִיּוֹת", "הזווית": "הַזָּוִית", "הזיזי": "הָזִיזִי", "החליפי": "הַחֲלִיפִי", "החסרה": "הַחֲסֵרָה", "החצאים": "הַחֲצָאִים", "הטבלה": "הַטַּבְלָה", "הטירה": "הַטִּירָה", "היא": "הִיא", "היום": "הַיּוֹם", "היי": "הַיי", "היקף": "הֶקֵּף", "הישרה": "הַיְשָׁרָה", "הכבוד": "הַכָּבוֹד", "הכי": "הֲכִי", "הכיתה": "הַכִּתָּה", "הכל": "הַכֹּל", "הלוח": "הַלּוּחַ", "הם": "הֵם", "המלבן": "הַמַּלְבֵּן", "המספר": "הַמִּסְפָּר", "המספרים": "הַמִּסְפָּרִים", "המראה": "הַמַּרְאָה", "המשבצת": "הַמִּשְׁבֶּצֶת", "המתאימה": "הַמַּתְאִימָה", "הנכון": "הַנָּכוֹן", "הנקודות": "הַנְּקֻדּוֹת", "הסבר": "הֶסְבֵּר", "הסימן": "הַסִּימָן", "הספר": "הַסֵּפֶר", "הסקאלה": "הַסְּקָאלָה", "הסרגל": "הַסַּרְגֵּל", "הסתכלי": "הִסְתַּכְּלִי", "העיפרון": "הָעִפָּרוֹן", "העמודה": "הָעַמּוּדָה", "הפינה": "הַפִּנָּה", "הפינות": "הַפִּנּוֹת", "הצהובות": "הַצְּהֻבּוֹת", "הצורה": "הַצּוּרָה", "הצורות": "הַצּוּרוֹת", "הצלע": "הַצֶּלַע", "הצלעות": "הַצְּלָעוֹת", "הצמידי": "הַצְמִידִי", "הקו": "הַקַּו", "הקווים": "הַקַּוִּים", "הקסומה": "הַקְּסוּמָה", "הקסם": "הַקֶּסֶם", "הקסמים": "הַקְּסָמִים", "הקשים": "הַקָּשִׁים", "הראשון": "הָרִאשׁוֹן", "הרבה": "הַרְבֵּה", "הרשת": "הָרֶשֶׁת", "השוואה": "הַשְׁוָאָה", "השם": "הַשֵּׁם", "השמאלי": "הַשְּׂמָאלִי", "השני": "הַשֵּׁנִי", "השתמשי": "הִשְׁתַּמְּשִׁי", "ואין": "וְאֵין", "ואת": "וְאַתְּ", "ובצד": "וּבַצַּד", "וגם": "וְגַם", "והבבואה": "וְהַבְּבוּאָה", "והצלעות": "וְהַצְּלָעוֹת", "והקו": "וְהַקַּו", "וזוויות": "וְזָוִיּוֹת", "וטירה": "וְטִירָה", "וכל": "וְכָל", "ולפעמים": "וְלִפְעָמִים", "ומדדי": "וּמִדְּדִי", "ומחברים": "וּמְחַבְּרִים", "ומלבן": "וּמַלְבֵּן", "ומספרים": "וּמִסְפָּרִים", "ומציאת": "וּמְצִיאַת", "ומראה": "וּמַרְאָה", "ומשולש": "וּמְשֻׁלָּשׁ", "ומתומן": "וּמְתֻמָּן", "וניל": "וָנִיל", "ונסי": "וְנַסִּי", "וסובבי": "וְסוֹבְבִי", "ועולים": "וְעוֹלִים", "וקהה": "וְקֵהָה", "וקודקודים": "וְקָדְקֹדִים", "ורואים": "וְרוֹאִים", "ורוחב": "וְרֹחַב", "וריבוע": "וְרִבּוּעַ", "ושאלות": "וּשְׁאֵלוֹת", "זאת": "זֹאת", "זה": "זֶה", "זהה": "זֵהָה", "זו": "זוֹ", "זוויות": "זָוִיּוֹת", "זווית": "זָוִית", "חד": "חַד", "חדה": "חַדָּה", "חזרה": "חֲזָרָה", "חיית": "חַיַּת", "חסרה": "חֲסֵרָה", "חסרות": "חֲסֵרוֹת", "חפשי": "חַפְּשִׂי", "חצאי": "חֲצָאֵי", "חצי": "חֲצִי", "חתול": "חָתוּל", "טיפ": "טִיפּ", "טירה": "טִירָה", "טירות": "טִירוֹת", "טירת": "טִירַת", "טעויות": "טָעֻיּוֹת", "טעים": "טָעִים", "טעם": "טַעַם", "יגיע": "יַגִּיעַ", "יופיע": "יוֹפִיעַ", "יותר": "יוֹתֵר", "יחידות": "יְחִידוֹת", "ילדי": "יַלְדֵי", "ילדים": "יְלָדִים", "יש": "יֵשׁ", "ישר": "יָשָׁר", "ישרה": "יְשָׁרָה", "ישרות": "יְשָׁרוֹת", "כאן": "כָּאן", "כדורגל": "כַּדּוּרֶגֶל", "כדורסל": "כַּדּוּרְסַל", "כדי": "כְּדֵי", "כל": "כָּל", "כלב": "כֶּלֶב", "כמה": "כַּמָּה", "כמו": "כְּמוֹ", "כמעט": "כִּמְעַט", "כתוב": "כָּתוּב", "לא": "לֹא", "לאן": "לְאָן", "לב": "לֵב", "לבחור": "לִבְחוֹר", "לדיאגרמות": "לְדִיאָגְרָמוֹת", "לה": "לָהּ", "להב": "לַהַב", "להיקף": "לְהֶקֵּף", "לו": "לוֹ", "לזו": "לְזוֹ", "לזוויות": "לְזָוִיּוֹת", "לזווית": "לְזָוִית", "לחצי": "לַחֲצִי", "לימון": "לִימוֹן", "לכאן": "לְכָאן", "למחומש": "לְמֻחְמָשׁ", "למטה": "לְמַטָּה", "למספר": "לְמִסְפַּר", "למצוא": "לִמְצֹא", "למקום": "לַמָּקוֹם", "למשולש": "לִמְשֻׁלָּשׁ", "למשחק": "לַמִּשְׂחָק", "לספור": "לִסְפֹּר", "לעיגול": "לְעִגּוּל", "לעלות": "לַעֲלוֹת", "לפחות": "לְפָחוֹת", "לפי": "לְפִי", "לפינה": "לְפִנָּה", "לפעמים": "לִפְעָמִים", "לצורה": "לְצוּרָה", "לקודקוד": "לְקָדְקֹד", "לקצה": "לְקָצֶה", "לקרוא": "לִקְרֹא", "לרמה": "לְרָמָה", "לתחילת": "לִתְחִלַּת", "מאוד": "מְאֹד", "מאשר": "מֵאֲשֶׁר", "מבחוץ": "מִבַּחוּץ", "מגדלים": "מִגְדָּלִים", "מגיעה": "מַגִּיעָה", "מדדת": "מָדַדְתְּ", "מדהים": "מַדְהִים", "מדויקת": "מְדֻיֶּקֶת", "מדידות": "מְדִידוֹת", "מה": "מָה", "מההתחלה": "מֵהַהַתְחָלָה", "מהמראה": "מֵהַמַּרְאָה", "מהן": "מֵהֶן", "מהקו": "מֵהַקַּו", "מודדים": "מוֹדְדִים", "מודדת": "מוֹדֶדֶת", "מוכנה": "מוּכָנָה", "מומחית": "מֻמְחִית", "מורכבות": "מְרֻכָּבוֹת", "מושלם": "מֻשְׁלָם", "מזהים": "מְזַהִים", "מזווית": "מִזָּוִית", "מחברים": "מְחַבְּרִים", "מחומש": "מֻחְמָשׁ", "מחמד": "מַחְמָד", "מחסרים": "מְחַסְּרִים", "מיותרות": "מְיֻתָּרוֹת", "מיותרת": "מְיֻתֶּרֶת", "מילימטר": "מִילִימֶטֶר", "מכל": "מִכֹּל", "מלבן": "מַלְבֵּן", "ממנה": "מִמֶּנָּה", "מסיימים": "מְסַיְּמִים", "מסמנים": "מְסַמְּנִים", "מספר": "מִסְפָּר", "מספרים": "מִסְפָּרִים", "מסתכלים": "מִסְתַּכְּלִים", "מעולה": "מְעֻלָּה", "מצאי": "מִצְאִי", "מצורות": "מִצּוּרוֹת", "מצמידים": "מַצְמִידִים", "מקפלים": "מְקַפְּלִים", "מראה": "מַרְאָה", "מרובע": "מְרֻבָּע", "מרחק": "מֶרְחָק", "משבצות": "מִשְׁבְּצוֹת", "משבצת": "מִשְׁבֶּצֶת", "משוכלל": "מְשֻׁכְלָל", "משולש": "מְשֻׁלָּשׁ", "משושה": "מְשֻׁשֶּׁה", "מתאימה": "מַתְאִימָה", "מתוך": "מִתּוֹךְ", "מתומן": "מְתֻמָּן", "מתחילים": "מַתְחִילִים", "נבנה": "נִבְנֶה", "נגמר": "נִגְמַר", "נגמרת": "נִגְמֶרֶת", "נופלים": "נוֹפְלִים", "נטייל": "נְטַיֵּל", "נייר": "נְיָר", "נכון": "נָכוֹן", "נכונות": "נְכוֹנוֹת", "נכונים": "נְכוֹנִים", "נמדוד": "נִמְדֹּד", "נמוכות": "נְמוּכוֹת", "נמצאות": "נִמְצָאוֹת", "נמצאת": "נִמְצֵאת", "נסי": "נַסִּי", "נפגשות": "נִפְגָּשׁוֹת", "נצוד": "נָצוּד", "נקודה": "נְקֻדָּה", "נקרא": "נִקְרָא", "נקראת": "נִקְרֵאת", "נשחק": "נְשַׂחֵק", "נתון": "נָתוּן", "נתונים": "נְתוּנִים", "סובבי": "סוֹבְבִי", "סופרים": "סוֹפְרִים", "סימטריה": "סִימֶטְרִיָּה", "סימטרית": "סִימֶטְרִית", "סימנת": "סִמַּנְתְּ", "סכום": "סְכוּם", "סנטימטר": "סֶנְטִימֶטֶר", "ספורט": "סְפּוֹרְט", "ספרי": "סִפְרִי", "סרגל": "סַרְגֵּל", "עבד": "עָבַד", "עגול": "עָגֹל", "עד": "עַד", "עוד": "עוֹד", "עולה": "עוֹלֶה", "עולים": "עוֹלִים", "עיגול": "עִגּוּל", "על": "עַל", "עלית": "עָלִית", "עם": "עִם", "עמודה": "עַמּוּדָה", "עמודות": "עַמּוּדוֹת", "ענבים": "עֲנָבִים", "ענו": "עָנוּ", "ערך": "עֶרֶךְ", "פיל": "פִּיל", "פינה": "פִּנָּה", "פינות": "פִּנּוֹת", "פעם": "פַּעַם", "פעמיים": "פַּעֲמַיִם", "פעמים": "פְּעָמִים", "פרי": "פְּרִי", "פשוטות": "פְּשׁוּטוֹת", "צבעי": "צִבְעִי", "צורה": "צוּרָה", "צורות": "צוּרוֹת", "ציורים": "צִיּוּרִים", "ציידי": "צַיְּדֵי", "ציידת": "צַיֶּדֶת", "צלע": "צֶלַע", "צלעות": "צְלָעוֹת", "צרה": "צָרָה", "צרות": "צָרוֹת", "צריך": "צָרִיךְ", "צריכה": "צְרִיכָה", "קהה": "קֵהָה", "קו": "קַו", "קודקוד": "קָדְקֹד", "קודקודים": "קָדְקֹדִים", "קווים": "קַוִּים", "קוסמת": "קוֹסֶמֶת", "קוראים": "קוֹרְאִים", "קוראת": "קוֹרֵאת", "קטן": "קָטָן", "קטנה": "קְטַנָּה", "קטנים": "קְטַנִּים", "קסומה": "קְסוּמָה", "קסמים": "קְסָמִים", "קראטה": "קָרָאטֶה", "קרן": "קֶרֶן", "רוחב": "רֹחַב", "רחבה": "רְחָבָה", "רחבות": "רְחָבוֹת", "רחוקה": "רְחוֹקָה", "ריבוע": "רִבּוּעַ", "ריכוז": "רִכּוּז", "רמה": "רָמָה", "רק": "רַק", "שאורך": "שֶׁאֹרֶךְ", "שאינו": "שֶׁאֵינוֹ", "שאלות": "שְׁאֵלוֹת", "שבה": "שֶׁבָּהּ", "שבו": "שֶׁבּוֹ", "שבטבלה": "שֶׁבַּטַּבְלָה", "שוב": "שׁוּב", "שוות": "שָׁווֹת", "שוקולד": "שׁוֹקוֹלָד", "שחייה": "שְׂחִיָּה", "שימי": "שִׂימִי", "שיש": "שֶׁיֵּשׁ", "שכל": "שֶׁכָּל", "של": "שֶׁל", "שלה": "שֶׁלָּהּ", "שלו": "שֶׁלּוֹ", "שלמים": "שְׁלֵמִים", "שמודדים": "שֶׁמּוֹדְדִים", "שממול": "שֶׁמִּמּוּל", "שמקיף": "שֶׁמַּקִּיף", "שני": "שְׁנֵי", "שסימנו": "שֶׁסִּמַּנּוּ", "שעולים": "שֶׁעוֹלִים", "שקרובות": "שֶׁקְּרוֹבוֹת", "שתי": "שְׁתֵּי", "תות": "תּוּת", "תפוח": "תַּפּוּחַ", "תשובות": "תְּשׁוּבוֹת", "העיגול": "הָעִגּוּל", "הריבוע": "הָרִבּוּעַ", "המשולש": "הַמְּשֻׁלָּשׁ", "המחומש": "הַמֻּחְמָשׁ", "המשושה": "הַמְּשֻׁשֶּׁה", "המתומן": "הַמְּתֻמָּן", "הקודם": "הַקּוֹדֵם", "הבא": "הַבָּא", "סגירה": "סְגִירָה", "שיעורים": "שִׁעוּרִים", "ניקוד": "נִקּוּד", "סיבוב": "סִבּוּב", "גרסה": "גִּרְסָה", "פותח": "פֻּתַּח", "ונוצר": "וְנוֹצַר", "ידי": "יְדֵי", "עומר": "עוֹמֶר", "ורועי": "וְרוֹעִי", "בעצמך": "בְּעַצְמֵךְ", "אל": "אֶל", "נכנסת": "נִכְנֶסֶת", "בפינה": "בַּפִּנָּה", "מהפינה": "מֵהַפִּנָּה", "לכן": "לָכֵן", "מונחת": "מֻנַּחַת", "הוורוד": "הַוָּרֹד", "הכפתורים": "הַכַּפְתּוֹרִים", "שצלע": "שֶׁצֶּלַע", "אדום": "אָדֹם", "אלה": "אֵלֶּה", "אפשר": "אֶפְשָׁר", "ארבע": "אַרְבַּע", "ארוכות": "אֲרֻכּוֹת", "בגדלים": "בִּגְדָלִים", "בדיקה": "בְּדִיקָה", "בודקים": "בּוֹדְקִים", "בוחרים": "בּוֹחֲרִים", "בוחרת": "בּוֹחֶרֶת", "בזוויות": "בַּזָּוִיּוֹת", "ביניהן": "בֵּינֵיהֶן", "בכחול": "בַּכָּחֹל", "בכל": "בְּכָל", "במקום": "בִּמְקוֹם", "במשולש": "בַּמְּשֻׁלָּשׁ", "בעין": "בָּעַיִן", "בצורה": "בַּצּוּרָה", "בצורות": "בַּצּוּרוֹת", "בצלעות": "בַּצְּלָעוֹת", "בקודקוד": "בַּקָּדְקֹד", "גדול": "גָּדוֹל", "גודל": "גֹּדֶל", "דקות": "דַּקּוֹת", "האותיות": "הָאוֹתִיּוֹת", "האם": "הַאִם", "הארוך": "הָאָרֹךְ", "הגדולה": "הַגְּדוֹלָה", "הדקות": "הַדַּקּוֹת", "היותר": "הַיּוֹתֵר", "המחוג": "הַמָּחוֹג", "הנקודה": "הַנְּקֻדָּה", "הסדר": "הַסֵּדֶר", "הפתיחה": "הַפְּתִיחָה", "הקודקוד": "הַקָּדְקֹד", "הקצר": "הַקָּצָר", "הקרן": "הַקֶּרֶן", "הקרניים": "הַקַּרְנַיִם", "הראי": "הַרְאִי", "הרמזים": "הָרְמָזִים", "השוואת": "הַשְׁוָאַת", "השנייה": "הַשְּׁנִיָּה", "השעה": "הַשָּׁעָה", "השעון": "הַשָּׁעוֹן", "השעות": "הַשָּׁעוֹת", "ואחר": "וְאַחַר", "ובסימטריה": "וּבְסִימֶטְרִיָּה", "ובריבוע": "וּבְרִבּוּעַ", "והארוך": "וְהָאָרֹךְ", "והזוויות": "וְהַזָּוִיּוֹת", "והמחוג": "וְהַמָּחוֹג", "וחצאי": "וַחֲצָאֵי", "וחצי": "וָחֵצִי", "וכמה": "וְכַמָּה", "ולא": "וְלֹא", "ולצורה": "וְלַצּוּרָה", "ומדידת": "וּמְדִידַת", "וקהות": "וְקֵהוֹת", "וקרן": "וְקֶרֶן", "ורבע": "וָרֶבַע", "ורמזים": "וּרְמָזִים", "זוג": "זוּג", "זז": "זָז", "זיהית": "זִהִיתְ", "זמן": "זְמַן", "חדות": "חַדּוֹת", "חמש": "חָמֵשׁ", "טענה": "טַעֲנָה", "טרפז": "טְרַפֵּז", "יוצאות": "יוֹצְאוֹת", "יוצר": "יוֹצֵר", "יוצרות": "יוֹצְרוֹת", "ירוק": "יָרֹק", "כהה": "כֵּהֶה", "כחול": "כָּחֹל", "כך": "כָּךְ", "כשהמחוג": "כְּשֶׁהַמָּחוֹג", "כששתי": "כְּשֶׁשְּׁתֵּי", "לאחת": "לְאַחַת", "לאט": "לְאַט", "לארבע": "לְאַרְבַּע", "לבדוק": "לִבְדֹּק", "לגדולה": "לַגְּדוֹלָה", "להגדיל": "לְהַגְדִּיל", "להקטין": "לְהַקְטִין", "לומדים": "לוֹמְדִים", "לחמש": "לְחָמֵשׁ", "ליד": "לְיַד", "לכל": "לְכָל", "לסווג": "לְסַוֵּג", "לעשר": "לְעֶשֶׂר", "לפני": "לִפְנֵי", "לרמז": "לְרֶמֶז", "לרמזים": "לָרְמָזִים", "לשבע": "לְשֶׁבַע", "לשלוש": "לְשָׁלוֹשׁ", "לשמונה": "לִשְׁמוֹנֶה", "לשש": "לְשֵׁשׁ", "לשתיים": "לִשְׁתַּיִם", "לשתים": "לִשְׁתֵּים", "לתשע": "לְתֵשַׁע", "מאותה": "מֵאוֹתָהּ", "מאותו": "מֵאוֹתוֹ", "מהי": "מָהִי", "מהקטנה": "מֵהַקְּטַנָּה", "מוריד": "מוֹרִיד", "מזהה": "מְזַהָה", "מניחים": "מַנִּיחִים", "מסדרים": "מְסַדְּרִים", "מסתתרת": "מִסְתַּתֶּרֶת", "מעוין": "מְעֻיָּן", "מעריכים": "מַעֲרִיכִים", "מצורה": "מִצּוּרָה", "מקבילית": "מַקְבִּילִית", "משווה": "מַשְׁוֶה", "משתי": "מִשְּׁתֵּי", "משתמשים": "מִשְׁתַּמְּשִׁים", "מתאימות": "מַתְאִימוֹת", "מתאימים": "מַתְאִימִים", "נוצרת": "נוֹצֶרֶת", "נחפש": "נְחַפֵּשׂ", "נכונה": "נְכוֹנָה", "נלמד": "נִלְמַד", "נסווג": "נְסַוֵּג", "נפתור": "נִפְתֹּר", "נראית": "נִרְאֵית", "נשווה": "נַשְׁוֶה", "סדרי": "סַדְּרִי", "עומד": "עוֹמֵד", "עליהן": "עֲלֵיהֶן", "עשר": "עֶשֶׂר", "עשרה": "עֶשְׂרֵה", "פתרת": "פָּתַרְתְּ", "ציר": "צִיר", "קהות": "קֵהוֹת", "קובע": "קוֹבֵעַ", "קודם": "קֹדֶם", "קפיצה": "קְפִיצָה", "קראי": "קִרְאִי", "קרובות": "קְרוֹבוֹת", "קרניים": "קַרְנַיִם", "רבע": "רֶבַע", "רבעי": "רִבְעֵי", "רחוק": "רָחוֹק", "רמז": "רֶמֶז", "רמזים": "רְמָזִים", "שאת": "שֶׁאַתְּ", "שבע": "שֶׁבַע", "שההבדל": "שֶׁהַהֶבְדֵּל", "שואלים": "שׁוֹאֲלִים", "שונים": "שׁוֹנִים", "שטוחה": "שְׁטוּחָה", "שיוצאות": "שֶׁיּוֹצְאוֹת", "שייכת": "שַׁיֶּכֶת", "שלא": "שֶׁלֹּא", "שלוש": "שָׁלוֹשׁ", "שלושה": "שְׁלוֹשָׁה", "שלמות": "שְׁלֵמוֹת", "שמבלבלות": "שֶׁמְּבַלְבְּלוֹת", "שמונה": "שְׁמוֹנֶה", "שמתגלים": "שֶׁמִּתְגַּלִּים", "שנמצאת": "שֶׁנִּמְצֵאת", "שעה": "שָׁעָה", "שעון": "שָׁעוֹן", "שעות": "שָׁעוֹת", "שקוף": "שָׁקוּף", "שש": "שֵׁשׁ", "שתיים": "שְׁתַּיִם", "שתים": "שְׁתֵּים", "תעלומה": "תַּעֲלוּמָה", "תעלומות": "תַּעֲלוּמוֹת", "תעלומת": "תַּעֲלוּמַת", "תשע": "תֵּשַׁע", "באדום": "בָּאָדֹם", "בה": "בָּהּ", "עכשיו": "עַכְשָׁו", "אחרונה": "אַחֲרוֹנָה", "להיות": "לִהְיוֹת", "תרגול": "תַּרְגּוּל", "משפר": "מְשַׁפֵּר", "ושיפור": "וְשִׁפּוּר", "מעלה": "מַעֲלֶה", "שיפור": "שִׁפּוּר", "יעלה": "יַעֲלֶה", "אותך": "אוֹתָךְ", "נעולה": "נְעוּלָה", "נפתחת": "נִפְתַּחַת", "אחרי": "אַחֲרֵי", "אומר": "אוֹמֵר", "איך": "אֵיךְ", "חדשה": "חֲדָשָׁה", "למשל": "לְמָשָׁל", "משחק": "מִשְׂחָק", "רמות": "רָמוֹת", "שהרמה": "שֶׁהָרָמָה", "שמסיימים": "שֶׁמְּסַיְּמִים"};
+const NK={"אבל": "אֲבָל", "אדריכלית": "אַדְרִיכָלִית", "אהוב": "אָהוּב", "אהובה": "אֲהוּבָה", "או": "אוֹ", "אוגר": "אוֹגֵר", "אוהבים": "אוֹהֲבִים", "אופקית": "אוֹפְקִית", "אורך": "אֹרֶךְ", "אורכי": "אָרְכֵי", "אורכים": "אֲרָכִים", "אותה": "אוֹתָהּ", "אחד": "אֶחָד", "אחרת": "אַחֶרֶת", "אחת": "אַחַת", "איזה": "אֵיזֶה", "איזו": "אֵיזוֹ", "אין": "אֵין", "אם": "אִם", "אני": "אֲנִי", "אנכית": "אֲנָכִית", "ארנב": "אַרְנָב", "באורכן": "בְּאָרְכָּן", "באותו": "בְּאוֹתוֹ", "באחת": "בְּאַחַת", "באיזה": "בְּאֵיזֶה", "באמצע": "בָּאֶמְצַע", "בבית": "בְּבֵית", "בגוניה": "בַּגּוֹנְיָה", "בדיוק": "בְּדִיּוּק", "בדקי": "בִּדְקִי", "בואי": "בּוֹאִי", "בונה": "בּוֹנָה", "בונים": "בּוֹנִים", "בחרו": "בָּחֲרוּ", "בטירה": "בַּטִּירָה", "ביותר": "בְּיוֹתֵר", "בין": "בֵּין", "בית": "בַּיִת", "בכלל": "בִּכְלָל", "בכמה": "בְּכַמָּה", "בלה": "בְּלָה", "בלי": "בְּלִי", "בלש": "בַּלָּשׁ", "בלשית": "בַּלָּשִׁית", "במלבן": "בְּמַלְבֵּן", "במרחק": "בְּמֶרְחָק", "במרכז": "בַּמֶּרְכָּז", "במשושה": "בְּמֻשְׁשֶׁה", "בנאנה": "בָּנָאנָה", "בנושא": "בַּנֹּשֵׂא", "בני": "בְּנִי", "בניסיון": "בְּנִסָּיוֹן", "בנית": "בָּנִית", "בננה": "בָּנָנָה", "בסך": "בְּסַךְ", "בסקר": "בַּסֶּקֶר", "בעיקר": "בְּעִקָּר", "בצד": "בַּצַּד", "בקו": "בַּקַּו", "בקרוב": "בְּקָרוֹב", "בריבוע": "בְּרִבּוּעַ", "בשלבים": "בַּשְּׁלָבִים", "גבוהה": "גְּבוֹהָה", "גדולה": "גְּדוֹלָה", "גדולים": "גְּדוֹלִים", "גוניה": "גּוֹנְיָה", "גיאו": "גֵּיאוֹ", "גלידה": "גְּלִידָה", "גם": "גַּם", "גררי": "גָּרְרִי", "דבר": "דָּבָר", "דיאגרמה": "דִּיאָגְרָמָה", "דיאגרמות": "דִּיאָגְרָמוֹת", "דיאגרמת": "דִּיאָגְרַמַּת", "דמות": "דְּמוּת", "דף": "דַּף", "האדום": "הָאָדֹם", "הבבואה": "הַבְּבוּאָה", "הבינוני": "הַבֵּינוֹנִי", "הבנתי": "הֵבַנְתִּי", "הגבוהה": "הַגְּבוֹהָה", "הגוניה": "הַגּוֹנְיָה", "הגעת": "הִגַּעַתְּ", "הדיאגרמה": "הַדִּיאָגְרָמָה", "ההיקף": "הַהֶקֵּף", "הוא": "הוּא", "הזאת": "הַזֹּאת", "הזה": "הַזֶּה", "הזוויות": "הַזָּוִיּוֹת", "הזווית": "הַזָּוִית", "הזיזי": "הָזִיזִי", "החליפי": "הַחֲלִיפִי", "החסרה": "הַחֲסֵרָה", "החצאים": "הַחֲצָאִים", "הטבלה": "הַטַּבְלָה", "הטירה": "הַטִּירָה", "היא": "הִיא", "היום": "הַיּוֹם", "היי": "הַיי", "היקף": "הֶקֵּף", "הישרה": "הַיְשָׁרָה", "הכבוד": "הַכָּבוֹד", "הכי": "הֲכִי", "הכיתה": "הַכִּתָּה", "הכל": "הַכֹּל", "הלוח": "הַלּוּחַ", "הם": "הֵם", "המלבן": "הַמַּלְבֵּן", "המספר": "הַמִּסְפָּר", "המספרים": "הַמִּסְפָּרִים", "המראה": "הַמַּרְאָה", "המשבצת": "הַמִּשְׁבֶּצֶת", "המתאימה": "הַמַּתְאִימָה", "הנכון": "הַנָּכוֹן", "הנקודות": "הַנְּקֻדּוֹת", "הסבר": "הֶסְבֵּר", "הסימן": "הַסִּימָן", "הספר": "הַסֵּפֶר", "הסקאלה": "הַסְּקָאלָה", "הסרגל": "הַסַּרְגֵּל", "הסתכלי": "הִסְתַּכְּלִי", "העיפרון": "הָעִפָּרוֹן", "העמודה": "הָעַמּוּדָה", "הפינה": "הַפִּנָּה", "הפינות": "הַפִּנּוֹת", "הצהובות": "הַצְּהֻבּוֹת", "הצורה": "הַצּוּרָה", "הצורות": "הַצּוּרוֹת", "הצלע": "הַצֶּלַע", "הצלעות": "הַצְּלָעוֹת", "הצמידי": "הַצְמִידִי", "הקו": "הַקַּו", "הקווים": "הַקַּוִּים", "הקסומה": "הַקְּסוּמָה", "הקסם": "הַקֶּסֶם", "הקסמים": "הַקְּסָמִים", "הקשים": "הַקָּשִׁים", "הראשון": "הָרִאשׁוֹן", "הרבה": "הַרְבֵּה", "הרשת": "הָרֶשֶׁת", "השוואה": "הַשְׁוָאָה", "השם": "הַשֵּׁם", "השמאלי": "הַשְּׂמָאלִי", "השני": "הַשֵּׁנִי", "השתמשי": "הִשְׁתַּמְּשִׁי", "ואין": "וְאֵין", "ואת": "וְאַתְּ", "ובצד": "וּבַצַּד", "וגם": "וְגַם", "והבבואה": "וְהַבְּבוּאָה", "והצלעות": "וְהַצְּלָעוֹת", "והקו": "וְהַקַּו", "וזוויות": "וְזָוִיּוֹת", "וטירה": "וְטִירָה", "וכל": "וְכָל", "ולפעמים": "וְלִפְעָמִים", "ומדדי": "וּמִדְּדִי", "ומחברים": "וּמְחַבְּרִים", "ומלבן": "וּמַלְבֵּן", "ומספרים": "וּמִסְפָּרִים", "ומציאת": "וּמְצִיאַת", "ומראה": "וּמַרְאָה", "ומשולש": "וּמְשֻׁלָּשׁ", "ומתומן": "וּמְתֻמָּן", "וניל": "וָנִיל", "ונסי": "וְנַסִּי", "וסובבי": "וְסוֹבְבִי", "ועולים": "וְעוֹלִים", "וקהה": "וְקֵהָה", "וקודקודים": "וְקָדְקֹדִים", "ורואים": "וְרוֹאִים", "ורוחב": "וְרֹחַב", "וריבוע": "וְרִבּוּעַ", "ושאלות": "וּשְׁאֵלוֹת", "זאת": "זֹאת", "זה": "זֶה", "זהה": "זֵהָה", "זו": "זוֹ", "זוויות": "זָוִיּוֹת", "זווית": "זָוִית", "חד": "חַד", "חדה": "חַדָּה", "חזרה": "חֲזָרָה", "חיית": "חַיַּת", "חסרה": "חֲסֵרָה", "חסרות": "חֲסֵרוֹת", "חפשי": "חַפְּשִׂי", "חצאי": "חֲצָאֵי", "חצי": "חֲצִי", "חתול": "חָתוּל", "טיפ": "טִיפּ", "טירה": "טִירָה", "טירות": "טִירוֹת", "טירת": "טִירַת", "טעויות": "טָעֻיּוֹת", "טעים": "טָעִים", "טעם": "טַעַם", "יגיע": "יַגִּיעַ", "יופיע": "יוֹפִיעַ", "יותר": "יוֹתֵר", "יחידות": "יְחִידוֹת", "ילדי": "יַלְדֵי", "ילדים": "יְלָדִים", "יש": "יֵשׁ", "ישר": "יָשָׁר", "ישרה": "יְשָׁרָה", "ישרות": "יְשָׁרוֹת", "כאן": "כָּאן", "כדורגל": "כַּדּוּרֶגֶל", "כדורסל": "כַּדּוּרְסַל", "כדי": "כְּדֵי", "כל": "כָּל", "כלב": "כֶּלֶב", "כמה": "כַּמָּה", "כמו": "כְּמוֹ", "כמעט": "כִּמְעַט", "כתוב": "כָּתוּב", "לא": "לֹא", "לאן": "לְאָן", "לב": "לֵב", "לבחור": "לִבְחוֹר", "לדיאגרמות": "לְדִיאָגְרָמוֹת", "לה": "לָהּ", "להב": "לַהַב", "להיקף": "לְהֶקֵּף", "לו": "לוֹ", "לזו": "לְזוֹ", "לזוויות": "לְזָוִיּוֹת", "לזווית": "לְזָוִית", "לחצי": "לַחֲצִי", "לימון": "לִימוֹן", "לכאן": "לְכָאן", "למחומש": "לְמֻחְמָשׁ", "למטה": "לְמַטָּה", "למספר": "לְמִסְפַּר", "למצוא": "לִמְצֹא", "למקום": "לַמָּקוֹם", "למשולש": "לִמְשֻׁלָּשׁ", "למשחק": "לַמִּשְׂחָק", "לספור": "לִסְפֹּר", "לעיגול": "לְעִגּוּל", "לעלות": "לַעֲלוֹת", "לפחות": "לְפָחוֹת", "לפי": "לְפִי", "לפינה": "לְפִנָּה", "לפעמים": "לִפְעָמִים", "לצורה": "לְצוּרָה", "לקודקוד": "לְקָדְקֹד", "לקצה": "לְקָצֶה", "לקרוא": "לִקְרֹא", "לרמה": "לְרָמָה", "לתחילת": "לִתְחִלַּת", "מאוד": "מְאֹד", "מאשר": "מֵאֲשֶׁר", "מבחוץ": "מִבַּחוּץ", "מגדלים": "מִגְדָּלִים", "מגיעה": "מַגִּיעָה", "מדדת": "מָדַדְתְּ", "מדהים": "מַדְהִים", "מדויקת": "מְדֻיֶּקֶת", "מדידות": "מְדִידוֹת", "מה": "מָה", "מההתחלה": "מֵהַהַתְחָלָה", "מהמראה": "מֵהַמַּרְאָה", "מהן": "מֵהֶן", "מהקו": "מֵהַקַּו", "מודדים": "מוֹדְדִים", "מודדת": "מוֹדֶדֶת", "מוכנה": "מוּכָנָה", "מומחית": "מֻמְחִית", "מורכבות": "מְרֻכָּבוֹת", "מושלם": "מֻשְׁלָם", "מזהים": "מְזַהִים", "מזווית": "מִזָּוִית", "מחברים": "מְחַבְּרִים", "מחומש": "מֻחְמָשׁ", "מחמד": "מַחְמָד", "מחסרים": "מְחַסְּרִים", "מיותרות": "מְיֻתָּרוֹת", "מיותרת": "מְיֻתֶּרֶת", "מילימטר": "מִילִימֶטֶר", "מכל": "מִכֹּל", "מלבן": "מַלְבֵּן", "ממנה": "מִמֶּנָּה", "מסיימים": "מְסַיְּמִים", "מסמנים": "מְסַמְּנִים", "מספר": "מִסְפָּר", "מספרים": "מִסְפָּרִים", "מסתכלים": "מִסְתַּכְּלִים", "מעולה": "מְעֻלָּה", "מצאי": "מִצְאִי", "מצורות": "מִצּוּרוֹת", "מצמידים": "מַצְמִידִים", "מקפלים": "מְקַפְּלִים", "מראה": "מַרְאָה", "מרובע": "מְרֻבָּע", "מרחק": "מֶרְחָק", "משבצות": "מִשְׁבְּצוֹת", "משבצת": "מִשְׁבֶּצֶת", "משוכלל": "מְשֻׁכְלָל", "משולש": "מְשֻׁלָּשׁ", "משושה": "מְשֻׁשֶּׁה", "מתאימה": "מַתְאִימָה", "מתוך": "מִתּוֹךְ", "מתומן": "מְתֻמָּן", "מתחילים": "מַתְחִילִים", "נבנה": "נִבְנֶה", "נגמר": "נִגְמַר", "נגמרת": "נִגְמֶרֶת", "נופלים": "נוֹפְלִים", "נטייל": "נְטַיֵּל", "נייר": "נְיָר", "נכון": "נָכוֹן", "נכונות": "נְכוֹנוֹת", "נכונים": "נְכוֹנִים", "נמדוד": "נִמְדֹּד", "נמוכות": "נְמוּכוֹת", "נמצאות": "נִמְצָאוֹת", "נמצאת": "נִמְצֵאת", "נסי": "נַסִּי", "נפגשות": "נִפְגָּשׁוֹת", "נצוד": "נָצוּד", "נקודה": "נְקֻדָּה", "נקרא": "נִקְרָא", "נקראת": "נִקְרֵאת", "נשחק": "נְשַׂחֵק", "נתון": "נָתוּן", "נתונים": "נְתוּנִים", "סובבי": "סוֹבְבִי", "סופרים": "סוֹפְרִים", "סימטריה": "סִימֶטְרִיָּה", "סימטרית": "סִימֶטְרִית", "סימנת": "סִמַּנְתְּ", "סכום": "סְכוּם", "סנטימטר": "סֶנְטִימֶטֶר", "ספורט": "סְפּוֹרְט", "ספרי": "סִפְרִי", "סרגל": "סַרְגֵּל", "עבד": "עָבַד", "עגול": "עָגֹל", "עד": "עַד", "עוד": "עוֹד", "עולה": "עוֹלֶה", "עולים": "עוֹלִים", "עיגול": "עִגּוּל", "על": "עַל", "עלית": "עָלִית", "עם": "עִם", "עמודה": "עַמּוּדָה", "עמודות": "עַמּוּדוֹת", "ענבים": "עֲנָבִים", "ענו": "עָנוּ", "ערך": "עֶרֶךְ", "פיל": "פִּיל", "פינה": "פִּנָּה", "פינות": "פִּנּוֹת", "פעם": "פַּעַם", "פעמיים": "פַּעֲמַיִם", "פעמים": "פְּעָמִים", "פרי": "פְּרִי", "פשוטות": "פְּשׁוּטוֹת", "צבעי": "צִבְעִי", "צורה": "צוּרָה", "צורות": "צוּרוֹת", "ציורים": "צִיּוּרִים", "ציידי": "צַיְּדֵי", "ציידת": "צַיֶּדֶת", "צלע": "צֶלַע", "צלעות": "צְלָעוֹת", "צרה": "צָרָה", "צרות": "צָרוֹת", "צריך": "צָרִיךְ", "צריכה": "צְרִיכָה", "קהה": "קֵהָה", "קו": "קַו", "קודקוד": "קָדְקֹד", "קודקודים": "קָדְקֹדִים", "קווים": "קַוִּים", "קוסמת": "קוֹסֶמֶת", "קוראים": "קוֹרְאִים", "קוראת": "קוֹרֵאת", "קטן": "קָטָן", "קטנה": "קְטַנָּה", "קטנים": "קְטַנִּים", "קסומה": "קְסוּמָה", "קסמים": "קְסָמִים", "קראטה": "קָרָאטֶה", "קרן": "קֶרֶן", "רוחב": "רֹחַב", "רחבה": "רְחָבָה", "רחבות": "רְחָבוֹת", "רחוקה": "רְחוֹקָה", "ריבוע": "רִבּוּעַ", "ריכוז": "רִכּוּז", "רמה": "רָמָה", "רק": "רַק", "שאורך": "שֶׁאֹרֶךְ", "שאינו": "שֶׁאֵינוֹ", "שאלות": "שְׁאֵלוֹת", "שבה": "שֶׁבָּהּ", "שבו": "שֶׁבּוֹ", "שבטבלה": "שֶׁבַּטַּבְלָה", "שוב": "שׁוּב", "שוות": "שָׁווֹת", "שוקולד": "שׁוֹקוֹלָד", "שחייה": "שְׂחִיָּה", "שימי": "שִׂימִי", "שיש": "שֶׁיֵּשׁ", "שכל": "שֶׁכָּל", "של": "שֶׁל", "שלה": "שֶׁלָּהּ", "שלו": "שֶׁלּוֹ", "שלמים": "שְׁלֵמִים", "שמודדים": "שֶׁמּוֹדְדִים", "שממול": "שֶׁמִּמּוּל", "שמקיף": "שֶׁמַּקִּיף", "שני": "שְׁנֵי", "שסימנו": "שֶׁסִּמַּנּוּ", "שעולים": "שֶׁעוֹלִים", "שקרובות": "שֶׁקְּרוֹבוֹת", "שתי": "שְׁתֵּי", "תות": "תּוּת", "תפוח": "תַּפּוּחַ", "תשובות": "תְּשׁוּבוֹת", "העיגול": "הָעִגּוּל", "הריבוע": "הָרִבּוּעַ", "המשולש": "הַמְּשֻׁלָּשׁ", "המחומש": "הַמֻּחְמָשׁ", "המשושה": "הַמְּשֻׁשֶּׁה", "המתומן": "הַמְּתֻמָּן", "הקודם": "הַקּוֹדֵם", "הבא": "הַבָּא", "סגירה": "סְגִירָה", "שיעורים": "שִׁעוּרִים", "ניקוד": "נִקּוּד", "סיבוב": "סִבּוּב", "גרסה": "גִּרְסָה", "פותח": "פֻּתַּח", "ונוצר": "וְנוֹצַר", "ידי": "יְדֵי", "עומר": "עוֹמֶר", "ורועי": "וְרוֹעִי", "בעצמך": "בְּעַצְמֵךְ", "אל": "אֶל", "נכנסת": "נִכְנֶסֶת", "בפינה": "בַּפִּנָּה", "מהפינה": "מֵהַפִּנָּה", "לכן": "לָכֵן", "מונחת": "מֻנַּחַת", "הוורוד": "הַוָּרֹד", "הכפתורים": "הַכַּפְתּוֹרִים", "שצלע": "שֶׁצֶּלַע", "אדום": "אָדֹם", "אלה": "אֵלֶּה", "אפשר": "אֶפְשָׁר", "ארבע": "אַרְבַּע", "ארוכות": "אֲרֻכּוֹת", "בגדלים": "בִּגְדָלִים", "בדיקה": "בְּדִיקָה", "בודקים": "בּוֹדְקִים", "בוחרים": "בּוֹחֲרִים", "בוחרת": "בּוֹחֶרֶת", "בזוויות": "בַּזָּוִיּוֹת", "ביניהן": "בֵּינֵיהֶן", "בכחול": "בַּכָּחֹל", "בכל": "בְּכָל", "במקום": "בִּמְקוֹם", "במשולש": "בַּמְּשֻׁלָּשׁ", "בעין": "בָּעַיִן", "בצורה": "בַּצּוּרָה", "בצורות": "בַּצּוּרוֹת", "בצלעות": "בַּצְּלָעוֹת", "בקודקוד": "בַּקָּדְקֹד", "גדול": "גָּדוֹל", "גודל": "גֹּדֶל", "דקות": "דַּקּוֹת", "האותיות": "הָאוֹתִיּוֹת", "האם": "הַאִם", "הארוך": "הָאָרֹךְ", "הגדולה": "הַגְּדוֹלָה", "הדקות": "הַדַּקּוֹת", "היותר": "הַיּוֹתֵר", "המחוג": "הַמָּחוֹג", "הנקודה": "הַנְּקֻדָּה", "הסדר": "הַסֵּדֶר", "הפתיחה": "הַפְּתִיחָה", "הקודקוד": "הַקָּדְקֹד", "הקצר": "הַקָּצָר", "הקרן": "הַקֶּרֶן", "הקרניים": "הַקַּרְנַיִם", "הראי": "הַרְאִי", "הרמזים": "הָרְמָזִים", "השוואת": "הַשְׁוָאַת", "השנייה": "הַשְּׁנִיָּה", "השעה": "הַשָּׁעָה", "השעון": "הַשָּׁעוֹן", "השעות": "הַשָּׁעוֹת", "ואחר": "וְאַחַר", "ובסימטריה": "וּבְסִימֶטְרִיָּה", "ובריבוע": "וּבְרִבּוּעַ", "והארוך": "וְהָאָרֹךְ", "והזוויות": "וְהַזָּוִיּוֹת", "והמחוג": "וְהַמָּחוֹג", "וחצאי": "וַחֲצָאֵי", "וחצי": "וָחֵצִי", "וכמה": "וְכַמָּה", "ולא": "וְלֹא", "ולצורה": "וְלַצּוּרָה", "ומדידת": "וּמְדִידַת", "וקהות": "וְקֵהוֹת", "וקרן": "וְקֶרֶן", "ורבע": "וָרֶבַע", "ורמזים": "וּרְמָזִים", "זוג": "זוּג", "זז": "זָז", "זיהית": "זִהִיתְ", "זמן": "זְמַן", "חדות": "חַדּוֹת", "חמש": "חָמֵשׁ", "טענה": "טַעֲנָה", "טרפז": "טְרַפֵּז", "יוצאות": "יוֹצְאוֹת", "יוצר": "יוֹצֵר", "יוצרות": "יוֹצְרוֹת", "ירוק": "יָרֹק", "כהה": "כֵּהֶה", "כחול": "כָּחֹל", "כך": "כָּךְ", "כשהמחוג": "כְּשֶׁהַמָּחוֹג", "כששתי": "כְּשֶׁשְּׁתֵּי", "לאחת": "לְאַחַת", "לאט": "לְאַט", "לארבע": "לְאַרְבַּע", "לבדוק": "לִבְדֹּק", "לגדולה": "לַגְּדוֹלָה", "להגדיל": "לְהַגְדִּיל", "להקטין": "לְהַקְטִין", "לומדים": "לוֹמְדִים", "לחמש": "לְחָמֵשׁ", "ליד": "לְיַד", "לכל": "לְכָל", "לסווג": "לְסַוֵּג", "לעשר": "לְעֶשֶׂר", "לפני": "לִפְנֵי", "לרמז": "לְרֶמֶז", "לרמזים": "לָרְמָזִים", "לשבע": "לְשֶׁבַע", "לשלוש": "לְשָׁלוֹשׁ", "לשמונה": "לִשְׁמוֹנֶה", "לשש": "לְשֵׁשׁ", "לשתיים": "לִשְׁתַּיִם", "לשתים": "לִשְׁתֵּים", "לתשע": "לְתֵשַׁע", "מאותה": "מֵאוֹתָהּ", "מאותו": "מֵאוֹתוֹ", "מהי": "מָהִי", "מהקטנה": "מֵהַקְּטַנָּה", "מוריד": "מוֹרִיד", "מזהה": "מְזַהָה", "מניחים": "מַנִּיחִים", "מסדרים": "מְסַדְּרִים", "מסתתרת": "מִסְתַּתֶּרֶת", "מעוין": "מְעֻיָּן", "מעריכים": "מַעֲרִיכִים", "מצורה": "מִצּוּרָה", "מקבילית": "מַקְבִּילִית", "משווה": "מַשְׁוֶה", "משתי": "מִשְּׁתֵּי", "משתמשים": "מִשְׁתַּמְּשִׁים", "מתאימות": "מַתְאִימוֹת", "מתאימים": "מַתְאִימִים", "נוצרת": "נוֹצֶרֶת", "נחפש": "נְחַפֵּשׂ", "נכונה": "נְכוֹנָה", "נלמד": "נִלְמַד", "נסווג": "נְסַוֵּג", "נפתור": "נִפְתֹּר", "נראית": "נִרְאֵית", "נשווה": "נַשְׁוֶה", "סדרי": "סַדְּרִי", "עומד": "עוֹמֵד", "עליהן": "עֲלֵיהֶן", "עשר": "עֶשֶׂר", "עשרה": "עֶשְׂרֵה", "פתרת": "פָּתַרְתְּ", "ציר": "צִיר", "קהות": "קֵהוֹת", "קובע": "קוֹבֵעַ", "קודם": "קֹדֶם", "קפיצה": "קְפִיצָה", "קראי": "קִרְאִי", "קרובות": "קְרוֹבוֹת", "קרניים": "קַרְנַיִם", "רבע": "רֶבַע", "רבעי": "רִבְעֵי", "רחוק": "רָחוֹק", "רמז": "רֶמֶז", "רמזים": "רְמָזִים", "שאת": "שֶׁאַתְּ", "שבע": "שֶׁבַע", "שההבדל": "שֶׁהַהֶבְדֵּל", "שואלים": "שׁוֹאֲלִים", "שונים": "שׁוֹנִים", "שטוחה": "שְׁטוּחָה", "שיוצאות": "שֶׁיּוֹצְאוֹת", "שייכת": "שַׁיֶּכֶת", "שלא": "שֶׁלֹּא", "שלוש": "שָׁלוֹשׁ", "שלושה": "שְׁלוֹשָׁה", "שלמות": "שְׁלֵמוֹת", "שמבלבלות": "שֶׁמְּבַלְבְּלוֹת", "שמונה": "שְׁמוֹנֶה", "שמתגלים": "שֶׁמִּתְגַּלִּים", "שנמצאת": "שֶׁנִּמְצֵאת", "שעה": "שָׁעָה", "שעון": "שָׁעוֹן", "שעות": "שָׁעוֹת", "שקוף": "שָׁקוּף", "שש": "שֵׁשׁ", "שתיים": "שְׁתַּיִם", "שתים": "שְׁתֵּים", "תעלומה": "תַּעֲלוּמָה", "תעלומות": "תַּעֲלוּמוֹת", "תעלומת": "תַּעֲלוּמַת", "תשע": "תֵּשַׁע", "באדום": "בָּאָדֹם", "בה": "בָּהּ", "עכשיו": "עַכְשָׁו", "אחרונה": "אַחֲרוֹנָה", "להיות": "לִהְיוֹת", "תרגול": "תַּרְגּוּל", "משפר": "מְשַׁפֵּר", "ושיפור": "וְשִׁפּוּר", "מעלה": "מַעֲלֶה", "שיפור": "שִׁפּוּר", "יעלה": "יַעֲלֶה", "אותך": "אוֹתָךְ", "נעולה": "נְעוּלָה", "נפתחת": "נִפְתַּחַת", "אחרי": "אַחֲרֵי", "אומר": "אוֹמֵר", "איך": "אֵיךְ", "חדשה": "חֲדָשָׁה", "למשל": "לְמָשָׁל", "משחק": "מִשְׂחָק", "רמות": "רָמוֹת", "שהרמה": "שֶׁהָרָמָה", "שמסיימים": "שֶׁמְּסַיְּמִים", "אוטובוס": "אוֹטוֹבּוּס", "אוטובוסים": "אוֹטוֹבּוּסִים", "אוכלים": "אוֹכְלִים", "אופניים": "אוֹפַנַּיִם", "אורזים": "אוֹרְזִים", "אותם": "אוֹתָם", "אחר": "אַחַר", "אי": "אִי", "ארוכים": "אֲרֻכִּים", "ארזי": "אִרְזִי", "ארזת": "אָרַזְתְּ", "אריה": "אַרְיֵה", "בגן": "בַּגַּן", "בהפסקה": "בַּהַפְסָקָה", "בחוץ": "בַּחוּץ", "בחצר": "בֶּחָצֵר", "בחרי": "בַּחֲרִי", "ביחד": "בְּיַחַד", "במעלות": "בְּמַעֲלוֹת", "בסנטימטרים": "בְּסֶנְטִימֶטְרִים", "בעוד": "בְּעוֹד", "בעיות": "בְּעָיוֹת", "בשבילם": "בִּשְׁבִילָם", "בשעה": "בַּשָּׁעָה", "בתרגיל": "בַּתַּרְגִּיל", "דוגמה": "דֻּגְמָה", "דקה": "דַּקָּה", "דרגה": "דַּרְגָּה", "הבאה": "הַבָּאָה", "החיות": "הַחַיּוֹת", "החשבון": "הַחֶשְׁבּוֹן", "המנה": "הַמָּנָה", "הן": "הֵן", "הסיום": "הַסִּיּוּם", "הפעולה": "הַפְּעֻלָּה", "הפעולות": "הַפְּעֻלּוֹת", "הקטן": "הַקָּטָן", "הראשונה": "הָרִאשׁוֹנָה", "השארית": "הַשְּׁאֵרִית", "התחיל": "הִתְחִיל", "התחלנו": "הִתְחַלְנוּ", "התרגיל": "הַתַּרְגִּיל", "התשובה": "הַתְּשׁוּבָה", "ודקה": "וְדַקָּה", "וחוצים": "וְחוֹצִים", "וחילוק": "וְחִלּוּק", "וחיסור": "וְחִסּוּר", "ולכן": "וְלָכֵן", "ומגלים": "וּמְגַלִּים", "ונגמר": "וְנִגְמַר", "ונשארים": "וְנִשְׁאָרִים", "ועוד": "וְעוֹד", "ושארית": "וּשְׁאֵרִית", "ושעה": "וְשָׁעָה", "חיבור": "חִבּוּר", "חיה": "חַיָּה", "חילוק": "חִלּוּק", "חלקי": "חַלְּקִי", "חפצים": "חֲפָצִים", "חשבי": "חַשְּׁבִי", "יהיו": "יִהְיוּ", "יוצא": "יוֹצֵא", "יישארו": "יִשָּׁאֲרוּ", "כדור": "כַּדּוּר", "כדורים": "כַּדּוּרִים", "כולם": "כֻּלָּם", "כולן": "כֻּלָּן", "כותבים": "כּוֹתְבִים", "כפל": "כֶּפֶל", "כריך": "כָּרִיךְ", "כשחילוק": "כְּשֶׁחִלּוּק", "כשיש": "כְּשֶׁיֵּשׁ", "כשעוברים": "כְּשֶׁעוֹבְרִים", "כתובות": "כְּתוּבוֹת", "לארוז": "לֶאֱרֹז", "לדעת": "לָדַעַת", "להכניס": "לְהַכְנִיס", "לזמן": "לִזְמַן", "לימין": "לִימִין", "למשולשים": "לִמְשֻׁלָּשִׁים", "לסדר": "לְסַדֵּר", "לעצור": "לַעֲצֹר", "לקבוצות": "לִקְבוּצוֹת", "לשארית": "לִשְׁאֵרִית", "לשעה": "לְשָׁעָה", "לתשובה": "לִתְשׁוּבָה", "מדויק": "מְדֻיָּק", "מהמחלק": "מֵהַמְחַלֵּק", "מהשעה": "מֵהַשָּׁעָה", "מוסיפים": "מוֹסִיפִים", "מוצאים": "מוֹצְאִים", "מחלק": "מְחַלֵּק", "מחלקים": "מְחַלְּקִים", "מחשבים": "מְחַשְּׁבִים", "מילוליות": "מִלּוּלִיּוֹת", "מיץ": "מִיץ", "מכפילים": "מַכְפִּילִים", "מלאות": "מְלֵאוֹת", "מלאים": "מְלֵאִים", "ממירים": "מְמִירִים", "ממנו": "מִמֶּנּוּ", "מנה": "מָנָה", "מסווגים": "מְסַוְּגִים", "מסוים": "מְסֻיָּם", "מצוין": "מְצֻיָּן", "משולשים": "מְשֻׁלָּשִׁים", "משחקים": "מְשַׂחֲקִים", "משמאל": "מִשְּׂמֹאל", "משנים": "מְשַׁנִּים", "נחלק": "נְחַלֵּק", "נכיר": "נַכִּיר", "נכנסים": "נִכְנָסִים", "נמשך": "נִמְשָׁךְ", "נשאר": "נִשְׁאַר", "נשארו": "נִשְׁאֲרוּ", "נשארים": "נִשְׁאָרִים", "נחש": "נָחָשׁ", "סדר": "סֵדֶר", "סוגריים": "סוֹגְרַיִם", "סרט": "סֶרֶט", "עבר": "עָבַר", "עברו": "עָבְרוּ", "עגולה": "עֲגֻלָּה", "עוברים": "עוֹבְרִים", "עוגיות": "עוּגִיּוֹת", "עוגייה": "עוּגִיָּה", "עזרה": "עֶזְרָה", "עפיפון": "עֲפִיפוֹן", "פותרים": "פּוֹתְרִים", "פחות": "פָּחוֹת", "פעולות": "פְּעֻלּוֹת", "פריטים": "פְּרִיטִים", "צבע": "צֶבַע", "צהוב": "צָהֹב", "קבוע": "קָבוּעַ", "קבוצה": "קְבוּצָה", "קבוצות": "קְבוּצוֹת", "קוף": "קוֹף", "קופסאות": "קֻפְסָאוֹת", "קופסה": "קֻפְסָה", "קורקינט": "קוֹרְקִינֶט", "קטנות": "קְטַנּוֹת", "קפיצות": "קְפִיצוֹת", "ראשונה": "רִאשׁוֹנָה", "שארית": "שְׁאֵרִית", "שבילים": "שְׁבִילִים", "שווה": "שָׁוֶה", "שונה": "שׁוֹנֶה", "שונות": "שׁוֹנוֹת", "שוקיים": "שׁוֹקַיִם", "שורה": "שׁוּרָה", "שחילקנו": "שֶׁחִלַּקְנוּ", "שיעור": "שִׁעוּר", "שניות": "שְׁנִיּוֹת", "שנשאר": "שֶׁנִּשְׁאַר", "שעת": "שְׁעַת", "שפותרים": "שֶׁפּוֹתְרִים", "שקיות": "שַׁקִּיּוֹת", "שקית": "שַׁקִּית", "תהיה": "תִּהְיֶה", "תיאורים": "תֵּאוּרִים", "תמונה": "תְּמוּנָה", "תמיד": "תָּמִיד", "תרגילים": "תַּרְגִּילִים", "תשובה": "תְּשׁוּבָה"};
 const MARKS=/[\u05B0-\u05C7]/,HEB=/[\u05D0-\u05EA\u05B0-\u05C7]+/g;
 let nikudOn=load('nikud')!=='0';
 const origText=new WeakMap();
